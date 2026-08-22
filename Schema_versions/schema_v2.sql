@@ -115,6 +115,24 @@ CREATE TABLE item_movement (
   FOREIGN KEY (to_storage_id) REFERENCES storage(storage_id)
 );
 
+-- Cost of moving items between two buildings, per the proposal's fixed-charge
+-- transportation model (NF Req 5): a flat dispatch cost per route plus a
+-- per-unit-per-mile handling cost. Rows are directional (A->B may differ from
+-- B->A); the optimizer looks these up rather than recomputing distance/cost
+-- each time.
+CREATE TABLE building_route (
+  building_route_id  INT AUTO_INCREMENT PRIMARY KEY,
+  from_building_id    INT NOT NULL,
+  to_building_id       INT NOT NULL,
+  distance_miles       DECIMAL(8,2) NOT NULL,
+  fixed_dispatch_cost  DECIMAL(10,2) NOT NULL,
+  cost_per_unit_mile   DECIMAL(10,4) NOT NULL,
+  FOREIGN KEY (from_building_id) REFERENCES building(building_id),
+  FOREIGN KEY (to_building_id) REFERENCES building(building_id),
+  UNIQUE (from_building_id, to_building_id),
+  CONSTRAINT chk_route_distinct CHECK (from_building_id <> to_building_id)
+);
+
 -- ---------------------------------------------------------------------------
 -- Views (replace v1's trigger-maintained counters with computed values)
 -- ---------------------------------------------------------------------------

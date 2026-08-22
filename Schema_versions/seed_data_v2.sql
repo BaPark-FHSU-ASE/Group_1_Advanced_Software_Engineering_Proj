@@ -98,6 +98,17 @@ VALUES
   (2, 4, 1);   -- South should have 1 roofing hammer
 
 -- ---------------------------------------------------------------------------
+-- Route costs between buildings (for the fixed-charge transportation optimizer)
+-- ---------------------------------------------------------------------------
+
+-- North <-> South, ~9 miles apart. Directional rows since a return trip could
+-- in principle have different routing/cost (e.g. one-way streets, tolls).
+INSERT INTO building_route (from_building_id, to_building_id, distance_miles, fixed_dispatch_cost, cost_per_unit_mile)
+VALUES
+  (1, 2, 9.20, 71.04, 0.05),   -- North -> South: $60 + $1.20*9.2 dispatch, $0.05/unit/mile handling
+  (2, 1, 9.20, 71.04, 0.05);   -- South -> North (same route, mirrored)
+
+-- ---------------------------------------------------------------------------
 -- Movement history: initial placements + one recorded transfer + the in-transit hammer
 -- ---------------------------------------------------------------------------
 
@@ -139,3 +150,5 @@ JOIN item_type it ON it.item_type_id = t.item_type_id
 LEFT JOIN v_building_item_type_counts c
   ON c.building_id = t.building_id AND c.item_type_id = t.item_type_id
 ORDER BY t.building_id, t.item_type_id;
+
+SELECT * FROM building_route;
