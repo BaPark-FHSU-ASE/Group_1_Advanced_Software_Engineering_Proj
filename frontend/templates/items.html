@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Items{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2>Items</h2>
+                <p>All individual inventory items across every site</p>
+            </div>
+            <button class="btn btn-primary">+ Add Item</button>
+        </div>
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Building</th>
+                        <th>Room</th>
+                        <th>Storage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td><a href="{{ url_for('item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+                        <td>{{ item.type }}</td>
+                        <td>
+                            {% if item.status == "In Storage" %}
+                                <span class="badge badge-ok">In Storage</span>
+                            {% elif item.status == "In Use" %}
+                                <span class="badge badge-warning">In Use</span>
+                            {% elif item.status == "In Transit" %}
+                                <span class="badge badge-transit">In Transit</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.building }}</td>
+                        <td>{{ item.room }}</td>
+                        <td>{{ item.storage }}</td>
+                        <td>
+                            <a href="{{ url_for('item_detail', item_id=item.id) }}" class="btn btn-small btn-secondary">View</a>
+                            <a href="#" class="btn btn-small">Edit</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="empty-state">No items found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}

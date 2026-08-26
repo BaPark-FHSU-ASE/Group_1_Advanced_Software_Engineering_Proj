@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – {{ item.name }}{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb"><a href="{{ url_for('items') }}">Items</a> / {{ item.name }}</div>
+                <h2>{{ item.name }}</h2>
+                <p>{{ item.type }}</p>
+            </div>
+            <a href="#" class="btn btn-primary">Edit Item</a>
+        </div>
+
+        <!-- Item details -->
+        <div class="card">
+            <div class="card-header"><span>📋 Details</span></div>
+            <div class="detail-grid">
+                <div class="detail-row">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value">
+                        {% if item.status == "In Storage" %}
+                            <span class="badge badge-ok">In Storage</span>
+                        {% elif item.status == "In Use" %}
+                            <span class="badge badge-warning">In Use</span>
+                        {% elif item.status == "In Transit" %}
+                            <span class="badge badge-transit">In Transit</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Building</span>
+                    <span class="detail-value">{{ item.building }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Room</span>
+                    <span class="detail-value">{{ item.room }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Storage Unit</span>
+                    <span class="detail-value">{{ item.storage }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Date Added</span>
+                    <span class="detail-value">{{ item.date_added }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Movement history -->
+        <div class="card">
+            <div class="card-header"><span>🕐 Movement History</span></div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for move in item.movement_history %}
+                    <tr>
+                        <td>{{ move.date }}</td>
+                        <td>{{ move.from }}</td>
+                        <td>{{ move.to }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="empty-state">No movement history.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}

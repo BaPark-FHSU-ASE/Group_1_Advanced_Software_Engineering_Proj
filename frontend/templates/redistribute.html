@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Redistribute{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2>Redistribute</h2>
+                <p>Optimal transfer plan to bring all sites back into compliance</p>
+            </div>
+            <button class="btn btn-primary">▶ Run Optimizer</button>
+        </div>
+
+        {% if plan.generated %}
+        <!-- Cost summary -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Optimal Cost</div>
+                <div class="stat-value">${{ "%.2f"|format(plan.total_cost) }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Greedy Baseline</div>
+                <div class="stat-value">${{ "%.2f"|format(plan.greedy_cost) }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Savings</div>
+                <div class="stat-value savings">${{ "%.2f"|format(plan.greedy_cost - plan.total_cost) }}</div>
+            </div>
+        </div>
+
+        <!-- Trip list -->
+        <div class="card">
+            <div class="card-header"><span>📋 Recommended Trips</span></div>
+            {% for trip in plan.trips %}
+            <div class="trip-row">
+                <div class="trip-route">
+                    <span class="trip-from">{{ trip.from }}</span>
+                    <span class="trip-arrow">→</span>
+                    <span class="trip-to">{{ trip.to }}</span>
+                </div>
+                <div class="trip-contents">
+                    {% for item in trip.items %}
+                    <span class="storage-tag">{{ item.qty }}× {{ item.type }}</span>
+                    {% endfor %}
+                </div>
+                <div class="trip-cost">
+                    <span class="cost-label">Dispatch</span> ${{ "%.2f"|format(trip.dispatch_cost) }}
+                    + <span class="cost-label">Handling</span> ${{ "%.2f"|format(trip.handling_cost) }}
+                    = <strong>${{ "%.2f"|format(trip.dispatch_cost + trip.handling_cost) }}</strong>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="card">
+            <div class="empty-state">
+                <p>🔄 No plan generated yet.</p>
+                <p>Click <strong>Run Optimizer</strong> to compute the lowest-cost redistribution across all sites.</p>
+                <br>
+                <a href="{{ url_for('compliance') }}" class="btn btn-secondary">View Surplus &amp; Shortage First</a>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

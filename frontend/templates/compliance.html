@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Surplus &amp; Shortage{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2>Surplus &amp; Shortage</h2>
+                <p>Compare on-hand quantities against stocking targets across all buildings</p>
+            </div>
+            <a href="{{ url_for('redistribute') }}" class="btn btn-primary">🔄 Generate Redistribution Plan</a>
+        </div>
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Building</th>
+                        <th>Item Type</th>
+                        <th>Target</th>
+                        <th>On Hand</th>
+                        <th>Available to Move</th>
+                        <th>Variance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in report %}
+                    <tr>
+                        <td>{{ row.building }}</td>
+                        <td>{{ row.item_type }}</td>
+                        <td>{{ row.target }}</td>
+                        <td>{{ row.on_hand }}</td>
+                        <td>{{ row.available }}</td>
+                        <td>
+                            {% if row.variance > 0 %}
+                                <span class="badge badge-surplus">+{{ row.variance }} surplus</span>
+                            {% elif row.variance < 0 %}
+                                <span class="badge badge-shortage">{{ row.variance }} shortage</span>
+                            {% else %}
+                                <span class="badge badge-ok">Balanced</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-state">No compliance data available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}
