@@ -1,0 +1,93 @@
+%% Stock Daddy — ERD for schema_v3.sql
+%% Generated from Schema_versions/schema_v3.sql (current canonical schema on main).
+%% Paste into any Mermaid renderer (Mermaid Live Editor, GitHub markdown, Notion, etc.)
+%% to get a diagram, or use as reference to rebuild the LucidChart version.
+
+erDiagram
+    OWNERS ||--o{ BUSINESS : owns
+    BUSINESS ||--o{ BUILDING : has
+    BUILDING ||--o{ ROOM : contains
+    ROOM ||--o{ STORAGE : contains
+    STORAGE ||--o{ ITEM : holds
+    ITEM_TYPE ||--o{ ITEM : categorizes
+    BUILDING ||--o{ TARGET_QUANTITY : sets
+    ITEM_TYPE ||--o{ TARGET_QUANTITY : "targeted for"
+    ITEM ||--o{ ITEM_MOVEMENT : "moved via"
+    STORAGE ||--o{ ITEM_MOVEMENT : "from (nullable)"
+    STORAGE ||--o{ ITEM_MOVEMENT : "to (nullable)"
+    BUILDING ||--o{ BUILDING_ROUTE : "from (nullable)"
+    BUILDING ||--o{ BUILDING_ROUTE : "to (nullable)"
+
+    OWNERS {
+        int owner_id PK
+        varchar first_name
+        varchar last_name
+        datetime date_added
+    }
+
+    BUSINESS {
+        int business_id PK
+        varchar name
+        int owner_id FK
+    }
+
+    BUILDING {
+        int building_id PK
+        int business_id FK
+        varchar state
+        varchar city
+        varchar street_address
+    }
+
+    ROOM {
+        int room_id PK
+        int building_id FK
+        varchar location
+    }
+
+    STORAGE {
+        int storage_id PK
+        int room_id FK
+        varchar storage_type
+    }
+
+    ITEM_TYPE {
+        int item_type_id PK
+        varchar name
+        varchar description
+        decimal replacement_cost "NULL = acquisition unavailable"
+    }
+
+    ITEM {
+        int item_id PK
+        int item_type_id FK
+        int storage_id FK "nullable: NULL while In Transit"
+        varchar item_name
+        varchar item_status "In Storage / In Use / In Transit"
+        datetime date_added
+    }
+
+    TARGET_QUANTITY {
+        int target_quantity_id PK
+        int building_id FK
+        int item_type_id FK
+        int target_qty "chk_target_nonneg: must be >= 0"
+    }
+
+    ITEM_MOVEMENT {
+        int item_movement_id PK
+        int item_id FK
+        int from_storage_id FK "nullable: NULL = newly added"
+        int to_storage_id FK "nullable: NULL = departing storage"
+        datetime moved_at
+    }
+
+    BUILDING_ROUTE {
+        int building_route_id PK
+        int from_building_id FK
+        int to_building_id FK
+        decimal distance_miles
+        decimal fixed_dispatch_cost "f_ij: charged once per trip"
+        decimal cost_per_unit_mile
+        decimal handling_cost_per_unit "h_ij: GENERATED distance x rate"
+    }

@@ -51,18 +51,21 @@ If you'd rather have it run automatically as a service and don't mind using an e
 From the `Schema_versions` folder, using the `mysql` CLI (adjust `-u root -p` if you set a password):
 
 ```bash
-mysql -u root < schema_v2.sql
-mysql -u root < seed_data_v2.sql
+mysql -u root < schema_v3.sql
+mysql -u root < seed_data_v3.sql
 ```
 
-Or in MySQL Workbench: open each file (schema_v2.sql first, then seed_data_v2.sql) and run it (the lightning-bolt "Execute" button) against your local connection.
+Or in MySQL Workbench: open each file (schema_v3.sql first, then seed_data_v3.sql) and run it (the lightning-bolt "Execute" button) against your local connection.
+
+Note: `schema_v3.sql` relies on `CHECK` constraints being enforced, which requires **MySQL 8.0.16 or later** (earlier versions parse them but silently ignore them). Run `mysql --version` to confirm before you start — the local MySQL 8.4 installs the team has been using are fine.
 
 ## 4. Verify
 
-`seed_data_v2.sql` ends with a few `SELECT`s, including a surplus/shortage report comparing on-hand inventory to each building's target quantity. If those return rows without errors, you're set up correctly.
+`seed_data_v3.sql` ends with a few `SELECT`s, including a surplus/shortage report comparing on-hand inventory to each building's target quantity, plus the exact optimizer results (optimal vs. naive-baseline cost) for the seeded 5-site scenario. If those return rows without errors, you're set up correctly.
 
 ## Files
 
-- `schema_v2.sql` — table/view definitions only (no data). Fixes v1's `BUILDING` FK bug and denormalized colu; adds `item_type`, `target_quantity`, and `item_movement` to support the transfer-optimization work.
-- `seed_data_v2.sql` — sample data modeling a two-building roofing company scenario (see the "surplus/shortage" query at the bottom for what it demonstrates).
+- `schema_v3.sql` — current schema (table/view/index definitions only, no data). Builds on v2 by adding `replacement_cost` to `item_type` (buy vs. transfer), a generated `handling_cost_per_unit` on `building_route`, and splitting on-hand quantity into `present_qty`/`available_qty` so shortage and shippable surplus aren't conflated. See the file's header comment for the full list of changes.
+- `seed_data_v3.sql` — sample data modeling a five-site roofing company, sized to give the optimizer non-trivial work (includes the expected optimal-vs-naive cost comparison).
+- `schema_v2.sql` / `seed_data_v2.sql` — superseded by v3, kept for reference. Fixed v1's `BUILDING` FK bug and denormalized columns; introduced `item_type`, `target_quantity`, `item_movement`, and `building_route`.
 - `initial_db_creation_v1.sql` — original v1, kept for reference.
