@@ -1,5 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, request, session
 
+import db
+
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"  # Change before production
 
@@ -44,52 +46,7 @@ def dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
 
-    # TODO: Replace with real DB query (Ivan's layer)
-    businesses = [
-        {
-            "id": 1,
-            "name": "Acme Roofing Co.",
-            "buildings": [
-                {
-                    "id": 1,
-                    "name": "Main Shop",
-                    "address": "123 North Ave, Pittsburg, KS",
-                    "rooms": [
-                        {
-                            "id": 1,
-                            "name": "Tool Room",
-                            "storages": [
-                                {"id": 1, "name": "Shelf A", "type": "Shelf", "item_count": 12},
-                                {"id": 2, "name": "Locker 1", "type": "Locker", "item_count": 5},
-                            ]
-                        },
-                        {
-                            "id": 2,
-                            "name": "Equipment Bay",
-                            "storages": [
-                                {"id": 3, "name": "Rack 1", "type": "Shelf", "item_count": 8},
-                            ]
-                        },
-                    ]
-                },
-                {
-                    "id": 2,
-                    "name": "South Storage",
-                    "address": "456 South Rd, Pittsburg, KS",
-                    "rooms": [
-                        {
-                            "id": 3,
-                            "name": "Main Floor",
-                            "storages": [
-                                {"id": 4, "name": "Bin 1", "type": "Storage Unit", "item_count": 3},
-                                {"id": 5, "name": "Toolbox A", "type": "Toolbox", "item_count": 7},
-                            ]
-                        },
-                    ]
-                },
-            ]
-        }
-    ]
+    businesses = db.get_dashboard_hierarchy()
     return render_template("dashboard.html", user=session["user"], businesses=businesses)
 
 
@@ -101,35 +58,9 @@ def dashboard():
 def building(building_id):
     if "user" not in session:
         return redirect(url_for("login"))
-    # TODO: Query building by ID from DB
-    building_data = {
-        "id": building_id,
-        "name": "Main Shop",
-        "address": "123 North Ave, Pittsburg, KS",
-        "rooms": [
-            {
-                "id": 1,
-                "name": "Tool Room",
-                "storages": [
-                    {"id": 1, "name": "Shelf A", "type": "Shelf", "item_count": 12},
-                    {"id": 2, "name": "Locker 1", "type": "Locker", "item_count": 5},
-                ]
-            },
-            {
-                "id": 2,
-                "name": "Equipment Bay",
-                "storages": [
-                    {"id": 3, "name": "Rack 1", "type": "Shelf", "item_count": 8},
-                ]
-            },
-        ],
-        "compliance": [
-            {"item_type": "Nail Gun",     "target": 5, "on_hand": 8, "available": 3, "variance": +3},
-            {"item_type": "Harness",      "target": 6, "on_hand": 4, "available": 4, "variance": -2},
-            {"item_type": "Compressor",   "target": 2, "on_hand": 2, "available": 1, "variance":  0},
-            {"item_type": "Ladder",       "target": 4, "on_hand": 2, "available": 2, "variance": -2},
-        ]
-    }
+    building_data = db.get_building(building_id)
+    if building_data is None:
+        return redirect(url_for("dashboard"))
     return render_template("building.html", user=session["user"], building=building_data)
 
 
@@ -141,13 +72,7 @@ def building(building_id):
 def items():
     if "user" not in session:
         return redirect(url_for("login"))
-    # TODO: Query all items from DB
-    item_list = [
-        {"id": 1, "name": "Nail Gun #3",   "type": "Nail Gun",   "status": "In Storage", "building": "Main Shop",     "room": "Tool Room",    "storage": "Shelf A"},
-        {"id": 2, "name": "Harness #1",    "type": "Harness",    "status": "In Use",     "building": "Main Shop",     "room": "Tool Room",    "storage": "Locker 1"},
-        {"id": 3, "name": "Compressor #2", "type": "Compressor", "status": "In Transit", "building": "South Storage", "room": "Main Floor",   "storage": "Bin 1"},
-        {"id": 4, "name": "Ladder #5",     "type": "Ladder",     "status": "In Storage", "building": "South Storage", "room": "Main Floor",   "storage": "Toolbox A"},
-    ]
+    item_list = db.get_items()
     return render_template("items.html", user=session["user"], items=item_list)
 
 
@@ -155,22 +80,9 @@ def items():
 def item_detail(item_id):
     if "user" not in session:
         return redirect(url_for("login"))
-    # TODO: Query item + movement history from DB
-    item = {
-        "id": item_id,
-        "name": "Nail Gun #3",
-        "type": "Nail Gun",
-        "status": "In Storage",
-        "building": "Main Shop",
-        "room": "Tool Room",
-        "storage": "Shelf A",
-        "date_added": "2024-03-01",
-        "movement_history": [
-            {"date": "2025-08-20", "from": "South Storage / Main Floor / Bin 1", "to": "Main Shop / Tool Room / Shelf A"},
-            {"date": "2025-06-10", "from": "Main Shop / Tool Room / Shelf A",    "to": "South Storage / Main Floor / Bin 1"},
-            {"date": "2025-01-15", "from": "—",                                  "to": "Main Shop / Tool Room / Shelf A"},
-        ]
-    }
+    item = db.get_item_detail(item_id)
+    if item is None:
+        return redirect(url_for("items"))
     return render_template("item_detail.html", user=session["user"], item=item)
 
 
@@ -182,14 +94,7 @@ def item_detail(item_id):
 def compliance():
     if "user" not in session:
         return redirect(url_for("login"))
-    # TODO: Query surplus/shortage from DB
-    report = [
-        {"building": "Main Shop",     "item_type": "Nail Gun",   "target": 5, "on_hand": 8, "available": 3, "variance": +3},
-        {"building": "Main Shop",     "item_type": "Harness",    "target": 6, "on_hand": 4, "available": 4, "variance": -2},
-        {"building": "South Storage", "item_type": "Nail Gun",   "target": 4, "on_hand": 2, "available": 2, "variance": -2},
-        {"building": "South Storage", "item_type": "Harness",    "target": 3, "on_hand": 5, "available": 5, "variance": +2},
-        {"building": "Main Shop",     "item_type": "Compressor", "target": 2, "on_hand": 2, "available": 1, "variance":  0},
-    ]
+    report = db.get_compliance_report()
     return render_template("compliance.html", user=session["user"], report=report)
 
 

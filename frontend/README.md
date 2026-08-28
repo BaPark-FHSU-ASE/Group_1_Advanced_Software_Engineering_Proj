@@ -34,7 +34,7 @@ cd Group_1_Advanced_Software_Engineering_Proj
 ### Step 3 — Navigate into the frontend folder
 
 ```
-cd stockdaddy
+cd frontend
 ```
 
 ---
