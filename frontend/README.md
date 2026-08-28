@@ -83,12 +83,9 @@ python3 app.py
 
 Go to: **http://127.0.0.1:5000**
 
-Log in with the seeded test account:
-- Email: `dale@prairieroofing.example`
-- Password: `roofing123`
-
-Or click **Register** to create your own account — auth is real now (hashed
-passwords, checked against the database), not a hardcoded stub.
+Login with:
+- Username: `admin`
+- Password: `admin`
 
 To stop the app, press `Ctrl + C` in the terminal.
 
@@ -137,6 +134,6 @@ stockdaddy/
 
 **Benjamin (CRUD API):** Every route in `app.py` has a `# TODO` comment. Replace the placeholder dicts with real DB queries there.
 
-**Ivan (Database):** All routes now query the real DB (schema v5) instead of placeholder data — see `db.py`. Registration/login use hashed passwords (werkzeug), never plaintext.
+**Ivan (Database):** The placeholder data in `app.py` mirrors the schema exactly — field names match the ERD.
 
 **Scott (Optimizer):** The `/redistribute` route passes a `plan` dict to `redistribute.html`. Set `plan["generated"] = True` and populate `plan["trips"]`, `plan["total_cost"]`, and `plan["greedy_cost"]` from your engine output.

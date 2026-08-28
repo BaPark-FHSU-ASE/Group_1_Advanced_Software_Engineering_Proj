@@ -51,25 +51,22 @@ If you'd rather have it run automatically as a service and don't mind using an e
 From the `Schema_versions` folder, using the `mysql` CLI (adjust `-u root -p` if you set a password):
 
 ```bash
-mysql -u root < schema_v5.sql
-mysql -u root < seed_data_v5.sql
+mysql -u root < schema_v4.sql
+mysql -u root < seed_data_v4.sql
 ```
 
-Or in MySQL Workbench: open each file (schema_v5.sql first, then seed_data_v5.sql) and run it (the lightning-bolt "Execute" button) against your local connection.
+Or in MySQL Workbench: open each file (schema_v4.sql first, then seed_data_v4.sql) and run it (the lightning-bolt "Execute" button) against your local connection.
 
-Note: `schema_v5.sql` relies on `CHECK` constraints being enforced, which requires **MySQL 8.0.16 or later** (earlier versions parse them but silently ignore them). Run `mysql --version` to confirm before you start — the local MySQL 8.4 installs the team has been using are fine.
+Note: `schema_v4.sql` relies on `CHECK` constraints being enforced, which requires **MySQL 8.0.16 or later** (earlier versions parse them but silently ignore them). Run `mysql --version` to confirm before you start — the local MySQL 8.4 installs the team has been using are fine.
 
 ## 4. Verify
 
-`seed_data_v5.sql` ends with a few `SELECT`s, including a surplus/shortage report comparing on-hand inventory to each building's target quantity, plus the exact optimizer results (optimal vs. naive-baseline cost) for the seeded 5-site scenario. If those return rows without errors, you're set up correctly.
-
-The seed data also creates a test login (see `frontend/README.md` for the credentials) so you can log into the frontend without registering a new account first.
+`seed_data_v4.sql` ends with a few `SELECT`s, including a surplus/shortage report comparing on-hand inventory to each building's target quantity, plus the exact optimizer results (optimal vs. naive-baseline cost) for the seeded 5-site scenario. If those return rows without errors, you're set up correctly.
 
 ## Files
 
-- `schema_v5.sql` — current schema (table/view/index definitions only, no data). Adds `owners.email` and `owners.password_hash` so the frontend can support real registration/login instead of the old hardcoded stub. Passwords are hashed (werkzeug, scrypt-based) in the frontend before ever reaching the DB — this table should never contain a plaintext password. No other changes from v4.
-- `seed_data_v5.sql` — same five-site roofing scenario as v4, with the owner insert updated to include a real email/password hash for local testing.
-- `schema_v4.sql` / `seed_data_v4.sql` — superseded by v5, kept for reference. Fixed a bug where a building/item-type combination with real stock but no `target_quantity` row was silently excluded from the optimizer's view. Added `CHECK` constraints on `replacement_cost`, `fixed_dispatch_cost`, and `cost_per_unit_mile`/`distance_miles`.
+- `schema_v4.sql` — current schema (table/view/index definitions only, no data). Fixes a v3 bug where a building/item-type combination with real stock but no `target_quantity` row was silently excluded from the optimizer's view entirely, instead of being reported as zero surplus. Also adds `CHECK` constraints on `replacement_cost`, `fixed_dispatch_cost`, and `cost_per_unit_mile`/`distance_miles` so a zero or negative value can't quietly corrupt the optimizer's cost comparisons. No new tables — see the file's header comment for details.
+- `seed_data_v4.sql` — sample data modeling a five-site roofing company, sized to give the optimizer non-trivial work (includes the expected optimal-vs-naive cost comparison). Note: this seed data sets a target for every (building, item type) pair, so it doesn't exercise the v4 bug fix directly — see the schema file's comment.
 - `schema_v3.sql` / `seed_data_v3.sql` — superseded by v4, kept for reference. Added `replacement_cost` to `item_type`, a generated `handling_cost_per_unit` on `building_route`, and split on-hand quantity into `present_qty`/`available_qty`.
 - `schema_v2.sql` / `seed_data_v2.sql` — superseded by v3, kept for reference. Fixed v1's `BUILDING` FK bug and denormalized columns; introduced `item_type`, `target_quantity`, `item_movement`, and `building_route`.
 - `initial_db_creation_v1.sql` — original v1, kept for reference.
