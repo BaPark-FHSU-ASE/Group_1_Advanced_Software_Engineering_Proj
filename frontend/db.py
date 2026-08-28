@@ -12,15 +12,16 @@ file that gets committed:
     DB_PASSWORD  default "" (matches the team's --initialize-insecure setup)
     DB_NAME      default "inventory_management"
 
-Known gap: there is no authentication data in the schema (no username/
-password columns on `owners`). Login in app.py is still a hardcoded
-stub for that reason — see the TODO there. Everything else here queries
-real data.
+Requires schema_v5.sql or later — v5 added owners.email/password_hash,
+which register_owner()/verify_owner() below depend on. Passwords are never
+stored or compared in plaintext: generate_password_hash/check_password_hash
+(werkzeug, scrypt-based) handle both directions.
 """
 
 import os
 import pymysql
 import pymysql.cursors
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def get_connection():
@@ -33,6 +34,68 @@ def get_connection():
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
     )
+
+
+class EmailAlreadyRegistered(Exception):
+    """Raised by register_owner() when the email is already taken."""
+    pass
+
+
+def register_owner(first_name, last_name, email, password):
+    """Create a new owner with a hashed password. Returns the new owner_id.
+
+    Raises EmailAlreadyRegistered if the email is already in use (owners.email
+    is UNIQUE — this catches that constraint and re-raises as something the
+    route can show a friendly message for, instead of a raw DB error).
+    """
+    password_hash = generate_password_hash(password)
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(
+                    "INSERT INTO owners (first_name, last_name, email, password_hash) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (first_name, last_name, email, password_hash),
+                )
+            except pymysql.err.IntegrityError as e:
+                # 1062 = Duplicate entry, i.e. the UNIQUE constraint on email.
+                if e.args[0] == 1062:
+                    raise EmailAlreadyRegistered(email) from e
+                raise
+            return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def verify_owner(email, password):
+    """Check email/password against the DB. Returns the owner dict on
+    success (with first_name, for the session), or None on failure.
+
+    Deliberately returns the same None for "no such email" and "wrong
+    password" - not distinguishing the two in the response is what stops
+    this endpoint from being usable to enumerate registered emails.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT owner_id, first_name, last_name, password_hash "
+                "FROM owners WHERE email = %s",
+                (email,),
+            )
+            owner = cur.fetchone()
+        if owner is None:
+            return None
+        if not check_password_hash(owner["password_hash"], password):
+            return None
+        return {
+            "owner_id": owner["owner_id"],
+            "first_name": owner["first_name"],
+            "last_name": owner["last_name"],
+        }
+    finally:
+        conn.close()
 
 
 def get_dashboard_hierarchy():
