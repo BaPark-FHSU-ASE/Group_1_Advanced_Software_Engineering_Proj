@@ -1,0 +1,23 @@
+<div class="sidebar">
+    <div class="sidebar-header">
+        <span class="sidebar-logo">Stock Daddy</span>
+        <span class="sidebar-tagline">Inventory Management</span>
+    </div>
+
+    <nav class="sidebar-nav">
+        <div class="nav-section-label">Custody</div>
+        <a href="{{ url_for('dashboard') }}"   class="nav-item {% if request.endpoint == 'dashboard'   %}active{% endif %}">🏠 Dashboard</a>
+        <a href="{{ url_for('items') }}"       class="nav-item {% if request.endpoint in ['items','item_detail'] %}active{% endif %}">📦 Items</a>
+
+        <div class="nav-section-label">Compliance</div>
+        <a href="{{ url_for('compliance') }}"  class="nav-item {% if request.endpoint == 'compliance'  %}active{% endif %}">⚠️ Surplus &amp; Shortage</a>
+
+        <div class="nav-section-label">Decision Support</div>
+        <a href="{{ url_for('redistribute') }}" class="nav-item {% if request.endpoint == 'redistribute' %}active{% endif %}">🔄 Redistribute</a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <span class="sidebar-user">👤 {{ user }}</span>
+        <a href="{{ url_for('logout') }}" class="nav-item logout">Log Out</a>
+    </div>
+</div>

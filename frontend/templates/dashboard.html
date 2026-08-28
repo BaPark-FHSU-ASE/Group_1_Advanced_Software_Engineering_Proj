@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Dashboard{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2>Dashboard</h2>
+                <p>Your full inventory hierarchy at a glance</p>
+            </div>
+            <button class="btn btn-primary">+ Add Business</button>
+        </div>
+
+        {% for biz in businesses %}
+        <div class="card">
+            <div class="card-header">
+                <span>🏢 <strong>{{ biz.name }}</strong></span>
+                <div class="card-actions">
+                    <a href="#" class="btn btn-small">+ Building</a>
+                    <a href="#" class="btn btn-small btn-secondary">Edit</a>
+                </div>
+            </div>
+
+            <div class="building-grid">
+                {% for building in biz.buildings %}
+                <div class="building-card">
+                    <div class="building-header">
+                        <div>
+                            <div class="building-name">🏗 <a href="{{ url_for('building', building_id=building.id) }}">{{ building.name }}</a></div>
+                            <div class="building-address">📍 {{ building.address }}</div>
+                        </div>
+                        <a href="#" class="btn btn-small">+ Room</a>
+                    </div>
+
+                    {% for room in building.rooms %}
+                    <div class="room-block">
+                        <div class="room-header">
+                            <span class="room-name">🚪 {{ room.name }}</span>
+                            <a href="#" class="btn btn-tiny">+ Storage</a>
+                        </div>
+                        <div class="storage-list">
+                            {% for storage in room.storages %}
+                            <div class="storage-tag">
+                                <span class="storage-icon">📦</span>
+                                <span class="storage-name">{{ storage.name }}</span>
+                                <span class="storage-type">{{ storage.type }}</span>
+                                <span class="storage-count">{{ storage.item_count }} items</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No businesses yet. Click <strong>+ Add Business</strong> to get started.</p>
+        </div>
+        {% endfor %}
+    </main>
+</div>
+{% endblock %}
