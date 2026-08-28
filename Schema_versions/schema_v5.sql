@@ -1,9 +1,14 @@
 -- Stock Daddy: Inventory Management System
 -- Schema v5
 --
--- Scope: adds real authentication data. No changes to v4's optimizer fixes.
+-- Engine change: ported from MySQL to SQLite (team decision, 8/26 - no
+-- server to install, `sqlite3` ships with Python, and everyone gets a
+-- working DB just by cloning the repo). This is the same v5 content that
+-- was drafted against MySQL - real auth via owners.email/password_hash -
+-- just re-expressed in SQLite's dialect. See "Porting notes" below for
+-- what actually differs.
 --
--- Changes from v4 (schema_v4.sql):
+-- Changes from v4 (schema_v4.sql, MySQL):
 --
 --   1. owners.email, owners.password_hash
 --      There was previously no way to actually log in as an owner - the
@@ -16,37 +21,59 @@
 --      every owner is expected to go through registration, not be inserted
 --      directly without credentials.
 --
--- Requires MySQL 8.0.16 or later (unchanged from v4): earlier versions
--- parse CHECK constraints and silently ignore them.
-
-CREATE DATABASE IF NOT EXISTS inventory_management;
-USE inventory_management;
+-- Porting notes (MySQL -> SQLite):
+--
+--   - No CREATE DATABASE / USE: SQLite is one file, not a server with
+--     named databases. See Schema_versions/build_db.py, which points
+--     sqlite3 at a .db file path instead.
+--   - AUTO_INCREMENT -> INTEGER PRIMARY KEY AUTOINCREMENT. SQLite requires
+--     the column type to be exactly INTEGER (not INT) for this to work.
+--   - Generated columns need the GENERATED ALWAYS keyword that MySQL didn't
+--     require (building_route.handling_cost_per_unit).
+--   - COMMENT '...' on columns isn't supported in SQLite - converted to
+--     plain SQL comments instead. No behavior change, just moved the note.
+--   - Foreign keys are NOT enforced by SQLite unless the connection turns
+--     them on explicitly (PRAGMA foreign_keys = ON). The FOREIGN KEY
+--     clauses below are still required for this to have any effect, but
+--     enforcement is the application's job now - see db.py's get_connection().
+--   - DECIMAL(p,s): SQLite has no fixed-point decimal storage class - a
+--     DECIMAL column here gets NUMERIC affinity and is actually stored as
+--     a floating-point REAL. For the money/rate columns in this schema
+--     (replacement_cost, fixed_dispatch_cost, cost_per_unit_mile,
+--     distance_miles, handling_cost_per_unit, target_qty) that's a real
+--     precision tradeoff versus MySQL's exact DECIMAL, worth knowing if
+--     the optimizer ever compares costs for exact equality rather than
+--     with a tolerance.
+--
+-- No separate MySQL-version-required note: this file has no CHECK-support
+-- version dependency the way the MySQL versions did - SQLite has enforced
+-- CHECK constraints since 3.3.0 (2006).
 
 -- ---------------------------------------------------------------------------
 -- Core hierarchy: owners -> business -> building -> room -> storage -> item
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE owners (
-  owner_id       INT AUTO_INCREMENT PRIMARY KEY,
+  owner_id       INTEGER PRIMARY KEY AUTOINCREMENT,
   first_name     VARCHAR(100) NOT NULL,
   last_name      VARCHAR(100) NOT NULL,
-  -- CHANGE 1: login credentials. password_hash must never hold a plaintext
-  -- password - see the frontend's db.py for how it's written/checked.
+  -- Login credentials. password_hash must never hold a plaintext password -
+  -- see the frontend's db.py for how it's written/checked.
   email          VARCHAR(255) NOT NULL UNIQUE,
   password_hash  VARCHAR(255) NOT NULL,
   date_added     DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE business (
-  business_id INT AUTO_INCREMENT PRIMARY KEY,
+  business_id INTEGER PRIMARY KEY AUTOINCREMENT,
   name        VARCHAR(100) NOT NULL,
-  owner_id    INT NOT NULL,
+  owner_id    INTEGER NOT NULL,
   FOREIGN KEY (owner_id) REFERENCES owners(owner_id)
 );
 
 CREATE TABLE building (
-  building_id     INT AUTO_INCREMENT PRIMARY KEY,
-  business_id     INT NOT NULL,
+  building_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  business_id     INTEGER NOT NULL,
   state           VARCHAR(100),
   city            VARCHAR(100),
   street_address  VARCHAR(100),
@@ -54,15 +81,15 @@ CREATE TABLE building (
 );
 
 CREATE TABLE room (
-  room_id     INT AUTO_INCREMENT PRIMARY KEY,
-  building_id INT NOT NULL,
+  room_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  building_id INTEGER NOT NULL,
   location    VARCHAR(100),
   FOREIGN KEY (building_id) REFERENCES building(building_id)
 );
 
 CREATE TABLE storage (
-  storage_id    INT AUTO_INCREMENT PRIMARY KEY,
-  room_id       INT NOT NULL,
+  storage_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id       INTEGER NOT NULL,
   storage_type  VARCHAR(100),
   FOREIGN KEY (room_id) REFERENCES room(room_id)
 );
@@ -75,20 +102,19 @@ CREATE TABLE storage (
 -- Item. The optimizer works at the type level ("move 3 nail guns"); picking
 -- which specific 3 is a separate step afterwards.
 CREATE TABLE item_type (
-  item_type_id     INT AUTO_INCREMENT PRIMARY KEY,
+  item_type_id     INTEGER PRIMARY KEY AUTOINCREMENT,
   name             VARCHAR(100) NOT NULL UNIQUE,
   description      VARCHAR(255),
-  replacement_cost DECIMAL(10,2) NULL
-    COMMENT 'Cost to acquire one new unit. NULL = acquisition unavailable (c_k = inf).',
-  -- CHANGE 2: c_k in R>0 union {infinity} per the math doc; NULL still means infinity.
+  -- Cost to acquire one new unit. NULL = acquisition unavailable (c_k = inf).
+  replacement_cost DECIMAL(10,2) NULL,
   CONSTRAINT chk_replacement_cost_positive
     CHECK (replacement_cost IS NULL OR replacement_cost > 0)
 );
 
 CREATE TABLE item (
-  item_id      INT AUTO_INCREMENT PRIMARY KEY,
-  item_type_id INT NOT NULL,
-  storage_id   INT NULL,          -- nullable: NULL while item_status = 'In Transit'
+  item_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_type_id INTEGER NOT NULL,
+  storage_id   INTEGER NULL,      -- nullable: NULL while item_status = 'In Transit'
   item_name    VARCHAR(100),
   item_status  VARCHAR(100) NOT NULL DEFAULT 'In Storage',
   date_added   DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -102,10 +128,10 @@ CREATE TABLE item (
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE target_quantity (
-  target_quantity_id INT AUTO_INCREMENT PRIMARY KEY,
-  building_id        INT NOT NULL,
-  item_type_id        INT NOT NULL,
-  target_qty          INT NOT NULL,
+  target_quantity_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  building_id         INTEGER NOT NULL,
+  item_type_id        INTEGER NOT NULL,
+  target_qty          INTEGER NOT NULL,
   FOREIGN KEY (building_id) REFERENCES building(building_id),
   FOREIGN KEY (item_type_id) REFERENCES item_type(item_type_id),
   UNIQUE (building_id, item_type_id),
@@ -113,10 +139,10 @@ CREATE TABLE target_quantity (
 );
 
 CREATE TABLE item_movement (
-  item_movement_id INT AUTO_INCREMENT PRIMARY KEY,
-  item_id           INT NOT NULL,
-  from_storage_id   INT NULL,   -- NULL if item was newly added rather than moved
-  to_storage_id     INT NULL,   -- NULL if item is departing storage
+  item_movement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id           INTEGER NOT NULL,
+  from_storage_id   INTEGER NULL,   -- NULL if item was newly added rather than moved
+  to_storage_id     INTEGER NULL,   -- NULL if item is departing storage
   moved_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (item_id) REFERENCES item(item_id),
   FOREIGN KEY (from_storage_id) REFERENCES storage(storage_id),
@@ -126,21 +152,21 @@ CREATE TABLE item_movement (
 -- Fixed-charge transportation costs. f_ij is charged once per trip whatever
 -- the load; h_ij scales with units carried. Rows are directional.
 CREATE TABLE building_route (
-  building_route_id      INT AUTO_INCREMENT PRIMARY KEY,
-  from_building_id       INT NOT NULL,
-  to_building_id         INT NOT NULL,
+  building_route_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_building_id       INTEGER NOT NULL,
+  to_building_id         INTEGER NOT NULL,
   distance_miles         DECIMAL(8,2) NOT NULL,
-  fixed_dispatch_cost    DECIMAL(10,2) NOT NULL
-    COMMENT 'f_ij: charged once if the route is opened, whatever it carries.',
+  -- f_ij: charged once if the route is opened, whatever it carries.
+  fixed_dispatch_cost    DECIMAL(10,2) NOT NULL,
   cost_per_unit_mile     DECIMAL(10,4) NOT NULL,
+  -- h_ij: cost to move one unit along this route. SQLite needs the
+  -- GENERATED ALWAYS keyword that MySQL didn't require here.
   handling_cost_per_unit DECIMAL(12,4)
-    AS (distance_miles * cost_per_unit_mile) STORED
-    COMMENT 'h_ij: cost to move one unit along this route.',
+    GENERATED ALWAYS AS (distance_miles * cost_per_unit_mile) STORED,
   FOREIGN KEY (from_building_id) REFERENCES building(building_id),
   FOREIGN KEY (to_building_id) REFERENCES building(building_id),
   UNIQUE (from_building_id, to_building_id),
   CONSTRAINT chk_route_distinct CHECK (from_building_id <> to_building_id),
-  -- CHANGE 2: f_ij in R>0, h_ij in R>=0 per the math doc.
   CONSTRAINT chk_dispatch_positive CHECK (fixed_dispatch_cost > 0),
   CONSTRAINT chk_rate_nonneg CHECK (cost_per_unit_mile >= 0 AND distance_miles >= 0)
 );
@@ -149,7 +175,6 @@ CREATE TABLE building_route (
 -- Views
 -- ---------------------------------------------------------------------------
 
--- Unchanged from v3.
 CREATE VIEW v_storage_item_count AS
 SELECT
   s.storage_id,
@@ -158,7 +183,6 @@ FROM storage s
 LEFT JOIN item i ON i.storage_id = s.storage_id
 GROUP BY s.storage_id;
 
--- Unchanged from v3.
 --   present_qty   - everything the building holds, In Storage or In Use.
 --                   Shortage is measured against this.
 --   available_qty - only what is idle, and therefore all that can ship.
@@ -176,12 +200,13 @@ JOIN room    r ON r.room_id    = s.room_id
 WHERE i.item_status <> 'In Transit'
 GROUP BY r.building_id, i.item_type_id;
 
--- CHANGE 1: a building/type with counted stock but no target row is now
--- included (second branch) with an implicit target of 0, instead of being
--- silently dropped. MySQL has no FULL OUTER JOIN, so this is the two
--- LEFT JOINs a full outer join would compile to, combined with UNION ALL.
--- The branches are disjoint by construction (first = pairs with a target
--- row, second = pairs without), so UNION ALL cannot introduce duplicates.
+-- A building/type with counted stock but no target row is included (second
+-- branch) with an implicit target of 0, instead of being silently dropped
+-- (the v3->v4 bug fix). SQLite has no FULL OUTER JOIN, same as MySQL, so
+-- this is the two LEFT JOINs a full outer join would compile to, combined
+-- with UNION ALL. The branches are disjoint by construction (first = pairs
+-- with a target row, second = pairs without), so UNION ALL cannot introduce
+-- duplicates.
 --
 --   shortage_qty          = d_jk
 --   shippable_surplus_qty = s_ik
@@ -192,9 +217,9 @@ SELECT
   t.target_qty,
   COALESCE(c.present_qty, 0)   AS present_qty,
   COALESCE(c.available_qty, 0) AS available_qty,
-  GREATEST(t.target_qty - COALESCE(c.present_qty, 0), 0) AS shortage_qty,
-  LEAST(
-    GREATEST(COALESCE(c.present_qty, 0) - t.target_qty, 0),
+  MAX(t.target_qty - COALESCE(c.present_qty, 0), 0) AS shortage_qty,
+  MIN(
+    MAX(COALESCE(c.present_qty, 0) - t.target_qty, 0),
     COALESCE(c.available_qty, 0)
   ) AS shippable_surplus_qty
 FROM target_quantity t
@@ -211,7 +236,7 @@ SELECT
   c.present_qty,
   c.available_qty,
   0 AS shortage_qty,                 -- target defaults to 0, so P - 0 can't be a shortage
-  c.available_qty AS shippable_surplus_qty  -- LEAST(GREATEST(P-0,0), A) reduces to A
+  c.available_qty AS shippable_surplus_qty  -- MIN(MAX(P-0,0), A) reduces to A
 FROM v_building_item_type_counts c
 LEFT JOIN target_quantity t
        ON c.building_id  = t.building_id
@@ -219,7 +244,7 @@ LEFT JOIN target_quantity t
 WHERE t.target_quantity_id IS NULL;
 
 -- ---------------------------------------------------------------------------
--- Indexes for the optimizer's read path (unchanged from v3)
+-- Indexes for the optimizer's read path
 -- ---------------------------------------------------------------------------
 
 CREATE INDEX idx_item_type_storage_status ON item (item_type_id, storage_id, item_status);

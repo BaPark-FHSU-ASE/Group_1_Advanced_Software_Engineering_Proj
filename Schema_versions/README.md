@@ -1,75 +1,78 @@
 # Database Setup
 
-Everyone runs their own local MySQL instance — we are not hosting a shared DB (see team discussion). Follow whichever section matches your OS to get `inventory_management` running locally.
+**Engine: SQLite** (switched from MySQL 8/26 — team decision: no server to
+install, `sqlite3` ships with Python, and cloning the repo gives everyone a
+working database immediately since the `.db` file is checked in).
 
-## 1. Install MySQL Server
+## The easy path: it's already built
 
-You need the actual **MySQL Server**, not just MySQL Workbench (Workbench is just the GUI client — it doesn't include a server).
+`frontend/stockdaddy.db` is committed to the repo. Clone the project,
+`cd frontend`, `pip install -r requirements.txt`, `python app.py` — there is
+no separate database setup step. See `frontend/README.md` for the full run
+instructions.
 
-**Windows (winget):**
-```powershell
-winget install --id Oracle.MySQL -e
-```
+You only need anything below this line if you're changing the schema or
+seed data yourself.
 
-**Windows (installer, if winget isn't available):**
-Download the MySQL Installer from https://dev.mysql.com/downloads/installer/ and choose "MySQL Server" during setup. Follow its configuration wizard and set a root password when prompted (skip ahead to step 3 once installed — the installer's wizard handles initialization/service setup for you).
+## Rebuilding the database
 
-**Mac:**
-```bash
-brew install mysql
-brew services start mysql
-```
-
-**Linux (Debian/Ubuntu):**
-```bash
-sudo apt install mysql-server
-sudo systemctl start mysql
-```
-
-## 2. Initialize and start the server (Windows manual/winget install only)
-
-If you installed via winget or the raw MSI (no configuration wizard), you need to initialize the data directory and start the server yourself:
-
-```powershell
-$mysqld = "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe"
-$datadir = "C:\ProgramData\MySQL\MySQL Server 8.4\Data"
-New-Item -ItemType Directory -Force -Path $datadir
-
-# Creates the data dir with root having NO password (fine for local dev only)
-& $mysqld --initialize-insecure --datadir="$datadir"
-
-# Starts the server in the foreground - leave this running in its own terminal
-& $mysqld --datadir="$datadir"
-```
-
-Note: this runs MySQL as a plain process, not a Windows service, since installing a service requires admin rights. You'll need to re-run the last command (start) each time you want the DB available; the `--initialize-insecure` step only needs to happen once.
-
-If you'd rather have it run automatically as a service and don't mind using an elevated terminal, run PowerShell as Administrator and use `& $mysqld --install` followed by `Start-Service MySQL84` instead of the manual start above.
-
-## 3. Create the database
-
-From the `Schema_versions` folder, using the `mysql` CLI (adjust `-u root -p` if you set a password):
+If you edit `schema_v5.sql` or `seed_data_v5.sql`, rebuild the `.db` file and
+commit it alongside your change — the app reads that file directly, so a
+schema change nobody rebuilds into it has no effect for anyone else:
 
 ```bash
-mysql -u root < schema_v5.sql
-mysql -u root < seed_data_v5.sql
+python Schema_versions/build_db.py
 ```
 
-Or in MySQL Workbench: open each file (schema_v5.sql first, then seed_data_v5.sql) and run it (the lightning-bolt "Execute" button) against your local connection.
+This drops and recreates `frontend/stockdaddy.db` from scratch. No arguments,
+no server, no credentials — it's a plain Python script using the standard
+library's `sqlite3` module.
 
-Note: `schema_v5.sql` relies on `CHECK` constraints being enforced, which requires **MySQL 8.0.16 or later** (earlier versions parse them but silently ignore them). Run `mysql --version` to confirm before you start — the local MySQL 8.4 installs the team has been using are fine.
+## Poking at the database directly
 
-## 4. Verify
+The `sqlite3` CLI ships with Python (`python -m sqlite3` if you don't have
+the standalone binary) — no separate install:
 
-`seed_data_v5.sql` ends with a few `SELECT`s, including a surplus/shortage report comparing on-hand inventory to each building's target quantity, plus the exact optimizer results (optimal vs. naive-baseline cost) for the seeded 5-site scenario. If those return rows without errors, you're set up correctly.
+```bash
+sqlite3 frontend/stockdaddy.db
+sqlite> SELECT * FROM v_building_item_type_position LIMIT 5;
+sqlite> .quit
+```
 
-The seed data also creates a test login (see `frontend/README.md` for the credentials) so you can log into the frontend without registering a new account first.
+Or point any SQLite-capable GUI (DB Browser for SQLite, TablePlus, the
+SQLite extension in VS Code, etc.) at the same file.
+
+## Verify
+
+Run this after building, to confirm the schema and seed data are behaving:
+
+```bash
+sqlite3 frontend/stockdaddy.db < Schema_versions/seed_data_v5.sql
+```
+
+(Re-running seed_data_v5.sql against an already-seeded DB will fail on the
+UNIQUE constraints — that's expected. If you actually want a fresh copy,
+use `build_db.py`, which starts from an empty file.)
+
+The seed data creates a test login (see `frontend/README.md` for the
+credentials) so you can log into the frontend without registering a new
+account first.
 
 ## Files
 
-- `schema_v5.sql` — current schema (table/view/index definitions only, no data). Adds `owners.email` and `owners.password_hash` so the frontend can support real registration/login instead of the old hardcoded stub. Passwords are hashed (werkzeug, scrypt-based) in the frontend before ever reaching the DB — this table should never contain a plaintext password. No other changes from v4.
-- `seed_data_v5.sql` — same five-site roofing scenario as v4, with the owner insert updated to include a real email/password hash for local testing.
-- `schema_v4.sql` / `seed_data_v4.sql` — superseded by v5, kept for reference. Fixed a bug where a building/item-type combination with real stock but no `target_quantity` row was silently excluded from the optimizer's view. Added `CHECK` constraints on `replacement_cost`, `fixed_dispatch_cost`, and `cost_per_unit_mile`/`distance_miles`.
-- `schema_v3.sql` / `seed_data_v3.sql` — superseded by v4, kept for reference. Added `replacement_cost` to `item_type`, a generated `handling_cost_per_unit` on `building_route`, and split on-hand quantity into `present_qty`/`available_qty`.
-- `schema_v2.sql` / `seed_data_v2.sql` — superseded by v3, kept for reference. Fixed v1's `BUILDING` FK bug and denormalized columns; introduced `item_type`, `target_quantity`, `item_movement`, and `building_route`.
-- `initial_db_creation_v1.sql` — original v1, kept for reference.
+- `schema_v5.sql` — current schema (table/view/index definitions only, no
+  data), SQLite dialect. Adds `owners.email` and `owners.password_hash` so
+  the frontend can support real registration/login instead of the old
+  hardcoded stub. Passwords are hashed (werkzeug, scrypt-based) in the
+  frontend before ever reaching the DB — this table should never contain a
+  plaintext password. See the file's header for the full MySQL→SQLite
+  porting notes (generated columns, FK enforcement, DECIMAL precision).
+- `seed_data_v5.sql` — same five-site roofing scenario as v4, ported to
+  SQLite, with the owner insert updated to include a real email/password
+  hash for local testing.
+- `build_db.py` — rebuilds `frontend/stockdaddy.db` from the two files
+  above. Run this after any schema/seed change.
+- `schema_v4.sql` / `seed_data_v4.sql` and earlier — MySQL-dialect,
+  superseded by the engine switch. Kept for history; not runnable against
+  SQLite without the same porting `schema_v5.sql` went through. See each
+  file's header comment for what changed at that step.

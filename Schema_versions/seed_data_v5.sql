@@ -1,8 +1,8 @@
--- Stock Daddy: seed data for schema_v5.sql
--- Run schema_v5.sql first.
+-- Stock Daddy: seed data for schema_v5.sql (SQLite)
+-- Run schema_v5.sql first (or just run build_db.py, which does both).
 --
--- Unchanged from seed_data_v4.sql other than the owner insert now including
--- email/password_hash (schema v5 made both NOT NULL) and this header.
+-- Same five-site roofing scenario as seed_data_v4.sql, with the owner
+-- insert now including email/password_hash (schema v5 made both NOT NULL).
 --
 -- Test login for this seed owner:
 --   email:    dale@prairieroofing.example
@@ -24,11 +24,10 @@
 --   * hard hats are exactly tight - 7 shippable against 7 short
 --   * one item is In Transit and must appear in no count anywhere
 
-USE inventory_management;
-
 -- --------------------------------------------------------------------
 -- Owner and business
 -- --------------------------------------------------------------------
+
 INSERT INTO owners (first_name, last_name, email, password_hash)
 VALUES ('Dale', 'Renner', 'dale@prairieroofing.example',
         'scrypt:32768:8:1$uL5DPd0xFaetSy1W$d66a5a46ed9d22aaa659aa169b4cf70ee3fa51a13d390f1b50923e1bdc345b6842454901a4568e32c6af9859fdd8ebb19487ebb630593656afdc150579e107a1');
@@ -198,36 +197,11 @@ INSERT INTO item (item_type_id, storage_id, item_name, item_status) VALUES
 -- Target quantities - what each site should hold
 -- --------------------------------------------------------------------
 INSERT INTO target_quantity (building_id, item_type_id, target_qty) VALUES
-  (1, 1, 3),
-  (1, 2, 1),
-  (1, 3, 2),
-  (1, 4, 4),
-  (1, 5, 4),
-  (1, 6, 3),
-  (2, 1, 3),
-  (2, 2, 2),
-  (2, 3, 2),
-  (2, 4, 4),
-  (2, 5, 4),
-  (2, 6, 3),
-  (3, 1, 2),
-  (3, 2, 1),
-  (3, 3, 2),
-  (3, 4, 3),
-  (3, 5, 3),
-  (3, 6, 2),
-  (4, 1, 3),
-  (4, 2, 1),
-  (4, 3, 2),
-  (4, 4, 4),
-  (4, 5, 3),
-  (4, 6, 3),
-  (5, 1, 2),
-  (5, 2, 1),
-  (5, 3, 2),
-  (5, 4, 3),
-  (5, 5, 2),
-  (5, 6, 2);
+  (1, 1, 3), (1, 2, 1), (1, 3, 2), (1, 4, 4), (1, 5, 4), (1, 6, 3),
+  (2, 1, 3), (2, 2, 2), (2, 3, 2), (2, 4, 4), (2, 5, 4), (2, 6, 3),
+  (3, 1, 2), (3, 2, 1), (3, 3, 2), (3, 4, 3), (3, 5, 3), (3, 6, 2),
+  (4, 1, 3), (4, 2, 1), (4, 3, 2), (4, 4, 4), (4, 5, 3), (4, 6, 3),
+  (5, 1, 2), (5, 2, 1), (5, 3, 2), (5, 4, 3), (5, 5, 2), (5, 6, 2);
 
 -- --------------------------------------------------------------------
 -- Route costs: dispatch = $60 + $1.20/mile, handling = $0.05/unit/mile
@@ -260,19 +234,16 @@ INSERT INTO building_route (from_building_id, to_building_id, distance_miles, fi
 -- --------------------------------------------------------------------
 -- Movement history
 -- --------------------------------------------------------------------
--- Initial placement for every item currently in a storage unit.
 INSERT INTO item_movement (item_id, from_storage_id, to_storage_id)
 SELECT item_id, NULL, storage_id FROM item WHERE storage_id IS NOT NULL;
 
 -- A completed transfer: Tear-off Shovel #1 moved from the Salina North
 -- locker (storage 1) to the shelf (storage 2) three weeks ago.
 INSERT INTO item_movement (item_id, from_storage_id, to_storage_id, moved_at)
-SELECT item_id, 1, 2, NOW() - INTERVAL 21 DAY
+SELECT item_id, 1, 2, datetime('now', '-21 days')
   FROM item WHERE item_name = 'Tear-off Shovel #1';
 
 -- The in-transit compressor departed Salina North four hours ago.
--- to_storage_id is NULL because v2/v3 has nowhere to record a destination;
--- see the open issue on in-transit destinations.
 INSERT INTO item_movement (item_id, from_storage_id, to_storage_id)
 SELECT item_id, 1, NULL FROM item WHERE item_name = 'Air Compressor #99';
 
@@ -280,10 +251,7 @@ SELECT item_id, 1, NULL FROM item WHERE item_name = 'Air Compressor #99';
 -- Verification
 -- --------------------------------------------------------------------
 
--- The optimizer's input. shortage_qty is d_jk, shippable_surplus_qty is s_ik.
--- Salina North / Nail Gun should read target 3, present 7, available 3:
--- a surplus of 4 of which only 3 can actually be loaded onto a truck.
-SELECT b.city, b.street_address, it.name AS item_type,
+SELECT b.city, it.name AS item_type,
        p.target_qty, p.present_qty, p.available_qty,
        p.shortage_qty, p.shippable_surplus_qty
   FROM v_building_item_type_position p
@@ -292,45 +260,12 @@ SELECT b.city, b.street_address, it.name AS item_type,
  WHERE p.shortage_qty > 0 OR p.shippable_surplus_qty > 0
  ORDER BY p.building_id, p.item_type_id;
 
--- Totals per type. Hard hats should come back 7 shippable / 7 short.
 SELECT it.name, SUM(p.shippable_surplus_qty) AS total_shippable,
        SUM(p.shortage_qty) AS total_short
   FROM v_building_item_type_position p
   JOIN item_type it ON it.item_type_id = p.item_type_id
  GROUP BY it.name ORDER BY it.name;
 
--- The in-transit compressor must appear in no building count. There are 7
--- rows in item of type 2, but the sum below must be 6 - Air Compressor #99
--- belongs to no building while it is in transit.
 SELECT SUM(c.present_qty) AS compressors_counted
   FROM v_building_item_type_counts c
  WHERE c.item_type_id = 2;
-
--- --------------------------------------------------------------------
--- Expected optimizer results (exact MILP solve, HiGHS)
---
--- Regression targets for the solver.
---
--- OPTIMAL                                                  $575.44, 3 trips
---   Abilene      -> Salina South   1 compressor, 2 harnesses
---   Salina North -> Great Bend     1 nail gun, 1 ladder, 2 hard hats, 1 harness
---   Salina North -> Hays           2 nail guns, 1 compressor, 3 hard hats, 2 shovels
---   acquire at Abilene             2 hard hats  ($76.00)
---
--- NEAREST-SOURCE-FIRST BASELINE                          $1,072.19, 7 trips
---   46.3% worse. Opens Abilene->Hays and Hays->Great Bend for one item each,
---   and splits Hays's nail guns across two origins.
---
--- STRICT, all replacement_cost set to NULL                  $591.42, 4 trips
---   Opens a fourth trip, Salina North -> Abilene, carrying nothing but two
---   hard hats: $89.52 dispatch + $2.46 handling to deliver $76.00 of gear.
---   This is the recommendation replacement_cost exists to avoid.
---
--- MARGINAL COST PER SHORTAGE FILLED
---   Salina South / compressor   $24.62      Hays / compressor  $28.98
---   Salina South / harness       $1.36      Hays / nail gun     $4.82
---   Great Bend  / any item       $4.44      Hays / hard hat     $4.82
---   Abilene     / hard hat      $38.00  <- at the margin, this is the purchase
---   Most marginals are tiny because the trip is already being made. That is
---   the free-rider effect the fixed dispatch charge creates.
--- --------------------------------------------------------------------

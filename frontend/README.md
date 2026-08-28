@@ -63,6 +63,10 @@ You'll know it worked when you see `(venv)` at the start of your terminal line.
 pip install -r requirements.txt
 ```
 
+That's it for setup — there's no separate database step. `stockdaddy.db`
+(SQLite) is already in this folder, committed to the repo with the seed
+data loaded. Nothing to install, no server to start, no credentials to set.
+
 ---
 
 ### Step 6 — Run the app
@@ -110,8 +114,10 @@ To stop the app, press `Ctrl + C` in the terminal.
 ## Project structure
 
 ```
-stockdaddy/
-├── app.py                  — Flask routes (all TODO markers for DB hookup)
+frontend/
+├── app.py                  — Flask routes, all querying the real DB
+├── db.py                   — SQLite connection layer + all queries
+├── stockdaddy.db           — the actual database (SQLite, committed, pre-seeded)
 ├── requirements.txt        — Python dependencies (just Flask)
 ├── .gitignore
 ├── README.md
@@ -119,6 +125,7 @@ stockdaddy/
 │   ├── base.html           — Shared layout, favicon, CSS link
 │   ├── nav.html            — Sidebar navigation
 │   ├── login.html
+│   ├── register.html
 │   ├── dashboard.html
 │   ├── building.html
 │   ├── items.html
@@ -131,12 +138,17 @@ stockdaddy/
     └── js/main.js
 ```
 
+If you edit the schema (`Schema_versions/schema_v5.sql`) or the seed data,
+regenerate `stockdaddy.db` with `python Schema_versions/build_db.py` and
+commit the result — the app reads that file directly, nothing rebuilds it
+automatically.
+
 ---
 
 ## Notes for teammates
 
-**Benjamin (CRUD API):** Every route in `app.py` has a `# TODO` comment. Replace the placeholder dicts with real DB queries there.
+**Benjamin (CRUD API):** All routes now query the real DB via `db.py` — no more `# TODO`/placeholder dicts to replace.
 
-**Ivan (Database):** All routes now query the real DB (schema v5) instead of placeholder data — see `db.py`. Registration/login use hashed passwords (werkzeug), never plaintext.
+**Ivan (Database):** Schema is SQLite now (`Schema_versions/schema_v5.sql`), not MySQL. Registration/login use hashed passwords (werkzeug), never plaintext. `db.py` has the full query layer.
 
-**Scott (Optimizer):** The `/redistribute` route passes a `plan` dict to `redistribute.html`. Set `plan["generated"] = True` and populate `plan["trips"]`, `plan["total_cost"]`, and `plan["greedy_cost"]` from your engine output.
+**Scott (Optimizer):** The `/redistribute` route passes a `plan` dict to `redistribute.html`. Set `plan["generated"] = True` and populate `plan["trips"]`, `plan["total_cost"]`, and `plan["greedy_cost"]` from your engine output. Note: `building_route.handling_cost_per_unit` is stored as SQLite's floating-point REAL, not exact decimal — compare costs with a small tolerance, not exact equality.
