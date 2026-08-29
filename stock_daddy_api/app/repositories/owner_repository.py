@@ -25,3 +25,15 @@ def create(first_name, last_name, email, password_hash):
     conn.close()
 
     return Owner.from_row(row)
+
+def get_by_id(owner_id):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM owners WHERE owner_id = ?", (owner_id,)
+    ).fetchone()
+    conn.close()
+
+    if row is None:
+        return None
+
+    return Owner.from_row(row)

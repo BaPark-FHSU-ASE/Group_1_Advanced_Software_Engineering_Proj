@@ -6,6 +6,7 @@ TEST_FILES = [
      "tests/test_owner.py",
      "tests/test_owner_repository.py",
      "tests/test_owner_repository_create.py",
+     "tests/test_owner_repository_get_by_id.py",
 ]
 
 if __name__ == "__main__":
