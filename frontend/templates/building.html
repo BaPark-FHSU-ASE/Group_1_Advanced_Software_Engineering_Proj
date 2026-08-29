@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – {{ building.name }}{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> / {{ building.name }}</div>
+                <h2>{{ building.name }}</h2>
+                <p>📍 {{ building.address }}</p>
+            </div>
+            <button class="btn btn-primary">+ Add Room</button>
+        </div>
+
+        <!-- Compliance snapshot -->
+        <div class="card">
+            <div class="card-header">
+                <span>⚠️ Stock Levels</span>
+                <a href="{{ url_for('compliance') }}" class="btn btn-small btn-secondary">Full Report</a>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item Type</th>
+                        <th>Target</th>
+                        <th>On Hand</th>
+                        <th>Available</th>
+                        <th>Variance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in building.compliance %}
+                    <tr>
+                        <td>{{ row.item_type }}</td>
+                        <td>{{ row.target }}</td>
+                        <td>{{ row.on_hand }}</td>
+                        <td>{{ row.available }}</td>
+                        <td>
+                            {% if row.variance > 0 %}
+                                <span class="badge badge-surplus">+{{ row.variance }} surplus</span>
+                            {% elif row.variance < 0 %}
+                                <span class="badge badge-shortage">{{ row.variance }} shortage</span>
+                            {% else %}
+                                <span class="badge badge-ok">Balanced</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Rooms and storage -->
+        {% for room in building.rooms %}
+        <div class="card">
+            <div class="card-header">
+                <span>🚪 {{ room.name }}</span>
+                <a href="#" class="btn btn-small">+ Storage Unit</a>
+            </div>
+            <div class="storage-list">
+                {% for storage in room.storages %}
+                <div class="storage-tag">
+                    <span class="storage-icon">📦</span>
+                    <span class="storage-name">{{ storage.name }}</span>
+                    <span class="storage-type">{{ storage.type }}</span>
+                    <span class="storage-count">{{ storage.item_count }} items</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </main>
+</div>
+{% endblock %}
