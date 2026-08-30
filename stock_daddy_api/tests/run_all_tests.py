@@ -9,6 +9,10 @@ TEST_FILES = [
      "tests/test_owner_repository_get_by_id.py",
      "tests/test_owner_repository_update.py",
      "tests/test_owner_repository_delete.py",
+     "tests/test_business_repository.py",
+     "tests/test_business_repository_create.py",
+     "tests/test_business_repository_get_by_id.py",
+     "tests/test_business_repository_update.py",
 ]
 
 if __name__ == "__main__":
