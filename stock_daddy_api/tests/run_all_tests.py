@@ -13,6 +13,7 @@ TEST_FILES = [
      "tests/test_business_repository_create.py",
      "tests/test_business_repository_get_by_id.py",
      "tests/test_business_repository_update.py",
+     "tests/test_business_repository_delete.py",
 ]
 
 if __name__ == "__main__":
