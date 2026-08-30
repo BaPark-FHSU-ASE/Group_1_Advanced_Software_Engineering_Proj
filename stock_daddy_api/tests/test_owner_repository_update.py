@@ -5,8 +5,6 @@ from app.models.owner import Owner
 def test_update_changes_and_returns_owner():
     conn = get_connection()
     try:
-        # Insert a throwaway owner to update, rather than touching Dale's
-        # real row or one from another test.
         cursor = conn.execute(
             "INSERT INTO owners (first_name, last_name, email, password_hash) "
             "VALUES (?, ?, ?, ?)",
