@@ -14,6 +14,7 @@ TEST_FILES = [
      "tests/test_business_repository_get_by_id.py",
      "tests/test_business_repository_update.py",
      "tests/test_business_repository_delete.py",
+      "tests/test_building_repository.py",
 ]
 
 if __name__ == "__main__":
