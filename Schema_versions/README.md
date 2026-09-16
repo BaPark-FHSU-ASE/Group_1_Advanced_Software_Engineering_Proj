@@ -16,7 +16,7 @@ seed data yourself.
 
 ## Rebuilding the database
 
-If you edit `schema_v5.sql` or `seed_data_v5.sql`, rebuild the `.db` file and
+If you edit `schema_v6.sql` or `seed_data_v6.sql`, rebuild the `.db` file and
 commit it alongside your change — the app reads that file directly, so a
 schema change nobody rebuilds into it has no effect for anyone else:
 
@@ -47,10 +47,10 @@ SQLite extension in VS Code, etc.) at the same file.
 Run this after building, to confirm the schema and seed data are behaving:
 
 ```bash
-sqlite3 frontend/stockdaddy.db < Schema_versions/seed_data_v5.sql
+sqlite3 frontend/stockdaddy.db < Schema_versions/seed_data_v6.sql
 ```
 
-(Re-running seed_data_v5.sql against an already-seeded DB will fail on the
+(Re-running seed_data_v6.sql against an already-seeded DB will fail on the
 UNIQUE constraints — that's expected. If you actually want a fresh copy,
 use `build_db.py`, which starts from an empty file.)
 
@@ -60,19 +60,33 @@ account first.
 
 ## Files
 
-- `schema_v5.sql` — current schema (table/view/index definitions only, no
-  data), SQLite dialect. Adds `owners.email` and `owners.password_hash` so
-  the frontend can support real registration/login instead of the old
-  hardcoded stub. Passwords are hashed (werkzeug, scrypt-based) in the
-  frontend before ever reaching the DB — this table should never contain a
-  plaintext password. See the file's header for the full MySQL→SQLite
-  porting notes (generated columns, FK enforcement, DECIMAL precision).
-- `seed_data_v5.sql` — same five-site roofing scenario as v4, ported to
-  SQLite, with the owner insert updated to include a real email/password
-  hash for local testing.
+- `schema_v6.sql` — current schema (table/view/index definitions only, no
+  data), SQLite dialect. Adds `item_movement.from_status`/`to_status` so a
+  pure status change (no location change) has somewhere to be recorded
+  (REQ-11), and `item_type.service_life_days` so REQ-23 has a threshold to
+  check an item's age against. Both nullable, same "NULL = not configured"
+  convention `replacement_cost` already established. See the file's header
+  for the full explanation of what each column fixes.
+- `seed_data_v6.sql` — same five-site roofing scenario as v5, plus a
+  `service_life_days` value on Nail Gun and Hard Hat, and one status-only
+  `item_movement` row (Nail Gun #4 going In Storage → In Use with no
+  location change) demonstrating the REQ-11 fix with real data.
 - `build_db.py` — rebuilds `frontend/stockdaddy.db` from the two files
   above. Run this after any schema/seed change.
+- `schema_v5.sql` / `seed_data_v5.sql` — superseded by v6, kept for
+  reference. Added `owners.email`/`owners.password_hash` for real
+  authentication (see PR #5) and ported the whole schema from MySQL to
+  SQLite.
 - `schema_v4.sql` / `seed_data_v4.sql` and earlier — MySQL-dialect,
   superseded by the engine switch. Kept for history; not runnable against
   SQLite without the same porting `schema_v5.sql` went through. See each
   file's header comment for what changed at that step.
+
+## Known follow-up, not yet done
+
+`item_movement.from_status`/`to_status` exist and are populated correctly
+(v6), but `frontend/db.py`'s `get_item_detail()` query and the item detail
+template don't display them yet — a status-only movement row currently
+renders as blank "—"/"—" for From/To in the UI, even though the data is
+there. Displaying it is a separate, small follow-up, not done as part of
+this schema change.
