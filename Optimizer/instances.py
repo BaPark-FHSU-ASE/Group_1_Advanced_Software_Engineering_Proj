@@ -2,7 +2,10 @@
 The two fully-specified, pre-solved instances.
 Goal is to test against these data before linking to database
 
-
+These are the regression targets for REQ-18: every solution procedure is
+required to reproduce the *_COST figures below on these instances. Because
+the problem is NP-hard, correctness is established empirically against known
+answers rather than by inspection, so these numbers are the check.
 """
 
 from __future__ import annotations

@@ -11,6 +11,17 @@ ItemType.replacement_cost == c_k  (None means c_k = infinity: acquisition unavai
 
 
 Not tied to the database - see hardcoded data in instances.py for the two pre-solved instances.
+
+Requirements traced:
+  REQ-17    Route carries distance, fixed dispatch cost, and per-unit-per-mile
+            handling cost for an ordered pair of buildings.
+  REQ-18    Plan is the redistribution plan: which types move, in what
+            quantity, between which buildings, at what cost.
+  REQ-19    Trip holds dispatch_cost and handling_cost as separate fields
+  UI-REQ-4  rather than one total, because both must be displayed apart.
+  REQ-24    ItemType.replacement_cost is the acquisition option, and
+            Plan.acquisitions / acquisition_cost() keep that cost separate
+            from transfer cost.
 """
 
 

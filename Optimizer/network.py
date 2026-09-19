@@ -9,6 +9,10 @@ at the scale this project targets.
 The underlying constraint matrix is totally unimodular, so integer
 capacities/supplies always yield an integral optimal flow - no rounding
 is needed here.
+
+Requirements traced: REQ-18. Once the set of open routes is fixed, this is
+what solves the remaining transportation problem exactly, and the
+minimum-cost plan REQ-18 asks for is built on top of it.
 """
 
 from __future__ import annotations
