@@ -1,0 +1,13 @@
+# Runtime dependencies for the Optimizer subsystem.
+#
+# models.py, instances.py, network.py, residual.py, nearest_source.py and
+# enumerate_bruteforce.py are standard library only - nothing below is needed
+# to import or run them.
+#
+# branch_and_bound.py is the only module with outside dependencies: it builds
+# the per-node LP relaxation with numpy and solves it with HiGHS through
+# scipy.optimize.linprog. The search itself is not delegated.
+#
+# Verified against numpy 2.3.2 / scipy 1.16.3 on Python 3.13.
+numpy>=2.0
+scipy>=1.14
