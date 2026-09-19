@@ -1,4 +1,10 @@
 .vscode/
+venv/
+.env
+
+# Scott's local scratch copy of the optimizer; the tracked package is Optimizer/
 local_optimizer/
+
 __pycache__/
 *.pyc
+.pytest_cache/
