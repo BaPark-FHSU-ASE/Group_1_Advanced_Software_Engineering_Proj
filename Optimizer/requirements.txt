@@ -11,3 +11,7 @@
 # Verified against numpy 2.3.2 / scipy 1.16.3 on Python 3.13.
 numpy>=2.0
 scipy>=1.14
+
+# Test-only. Optimizer/tests/run_all_tests.py drives pytest, matching the
+# convention in stock_daddy_api/tests/run_all_tests.py.
+pytest>=8.0
