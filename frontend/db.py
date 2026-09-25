@@ -10,13 +10,19 @@ or seed data, re-run that script and commit the resulting .db file.
 
 Passwords are never stored or compared in plaintext: generate_password_hash/
 check_password_hash (werkzeug, scrypt-based) handle both directions.
+
+DB_PATH reads from the DB_PATH environment variable, falling back to the
+real committed database. This mirrors stock_daddy_api/app/config.py so the
+test suite (see tests/conftest.py) can point this module at a disposable
+copy instead of the shared file, the same way it's isolated over there.
 """
 
+import os
 import sqlite3
 from pathlib import Path
 from werkzeug.security import generate_password_hash, check_password_hash
 
-DB_PATH = Path(__file__).resolve().parent / "stockdaddy.db"
+DB_PATH = os.environ.get("DB_PATH") or str(Path(__file__).resolve().parent / "stockdaddy.db")
 
 
 def get_connection():
