@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SCHEMA_FILE = HERE / "schema_v5.sql"
-SEED_FILE = HERE / "seed_data_v5.sql"
+SCHEMA_FILE = HERE / "schema_v6.sql"
+SEED_FILE = HERE / "seed_data_v6.sql"
 DB_FILE = HERE.parent / "frontend" / "stockdaddy.db"
 
 

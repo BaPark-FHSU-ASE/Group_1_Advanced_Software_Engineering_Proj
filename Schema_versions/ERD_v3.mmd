@@ -1,5 +1,9 @@
-%% Stock Daddy — ERD for schema_v3.sql
-%% Generated from Schema_versions/schema_v3.sql (current canonical schema on main).
+%% Stock Daddy — ERD for schema_v6.sql
+%% Generated from Schema_versions/schema_v6.sql (current canonical schema on main,
+%% SQLite dialect). Filename kept as ERD_v3.mmd for historical continuity with the
+%% artifact/doc references to it; content below reflects v6 (adds
+%% item_movement.from_status/to_status for REQ-11 and item_type.service_life_days
+%% for REQ-23 - see schema_v6.sql's changelog).
 %% Paste into any Mermaid renderer (Mermaid Live Editor, GitHub markdown, Notion, etc.)
 %% to get a diagram, or use as reference to rebuild the LucidChart version.
 
@@ -22,6 +26,8 @@ erDiagram
         int owner_id PK
         varchar first_name
         varchar last_name
+        varchar email "UNIQUE, login identifier"
+        varchar password_hash "never plaintext - werkzeug scrypt hash"
         datetime date_added
     }
 
@@ -56,6 +62,7 @@ erDiagram
         varchar name
         varchar description
         decimal replacement_cost "NULL = acquisition unavailable"
+        int service_life_days "NULL = no limit configured (REQ-23)"
     }
 
     ITEM {
@@ -77,8 +84,10 @@ erDiagram
     ITEM_MOVEMENT {
         int item_movement_id PK
         int item_id FK
-        int from_storage_id FK "nullable: NULL = newly added"
-        int to_storage_id FK "nullable: NULL = departing storage"
+        int from_storage_id FK "nullable: NULL = newly added, or status-only row"
+        int to_storage_id FK "nullable: NULL = departing storage, or status-only row"
+        varchar from_status "nullable (REQ-11)"
+        varchar to_status "nullable (REQ-11)"
         datetime moved_at
     }
 
