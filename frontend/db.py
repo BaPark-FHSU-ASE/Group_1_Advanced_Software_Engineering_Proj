@@ -351,3 +351,74 @@ def get_compliance_report():
         ]
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Rooms and storage units (REQ-4, REQ-5)
+# ---------------------------------------------------------------------------
+
+class NotFoundOrNotOwned(Exception):
+    """Raised when a write targets a record that doesn't exist or belongs to
+    a different owner. The route treats both the same way, so a user can't
+    use the error to find out which ids exist (NF-REQ-12)."""
+    pass
+
+
+def _building_owned_by(conn, building_id, owner_id):
+    row = conn.execute(
+        "SELECT 1 FROM building bl "
+        "JOIN business bs ON bs.business_id = bl.business_id "
+        "WHERE bl.building_id = ? AND bs.owner_id = ?",
+        (building_id, owner_id),
+    ).fetchone()
+    return row is not None
+
+
+def _room_owned_by(conn, room_id, owner_id):
+    """Returns the room's building_id if the owner owns it, else None."""
+    row = conn.execute(
+        "SELECT r.building_id FROM room r "
+        "JOIN building bl ON bl.building_id = r.building_id "
+        "JOIN business bs ON bs.business_id = bl.business_id "
+        "WHERE r.room_id = ? AND bs.owner_id = ?",
+        (room_id, owner_id),
+    ).fetchone()
+    return row["building_id"] if row else None
+
+
+def add_room(owner_id, building_id, name):
+    """Create a room in one of the owner's buildings. Returns the new room_id."""
+    conn = get_connection()
+    try:
+        if not _building_owned_by(conn, building_id, owner_id):
+            raise NotFoundOrNotOwned()
+        cur = conn.execute(
+            "INSERT INTO room (building_id, location) VALUES (?, ?)",
+            (building_id, name),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def add_storage(owner_id, room_id, storage_type):
+    """Create a storage unit in one of the owner's rooms.
+
+    Returns (storage_id, building_id) so the route knows which building page
+    to send the user back to. storage_type is free text on purpose: the
+    suggested types are only suggestions (NF-REQ-1).
+    """
+    conn = get_connection()
+    try:
+        building_id = _room_owned_by(conn, room_id, owner_id)
+        if building_id is None:
+            raise NotFoundOrNotOwned()
+        cur = conn.execute(
+            "INSERT INTO storage (room_id, storage_type) VALUES (?, ?)",
+            (room_id, storage_type),
+        )
+        conn.commit()
+        return cur.lastrowid, building_id
+    finally:
+        conn.close()

@@ -32,14 +32,14 @@
                             <div class="building-name">🏗 <a href="{{ url_for('building', building_id=building.id) }}">{{ building.name }}</a></div>
                             <div class="building-address">📍 {{ building.address }}</div>
                         </div>
-                        <a href="#" class="btn btn-small">+ Room</a>
+                        <a href="{{ url_for('building', building_id=building.id, add='room') }}" class="btn btn-small">+ Room</a>
                     </div>
 
                     {% for room in building.rooms %}
                     <div class="room-block">
                         <div class="room-header">
                             <span class="room-name">🚪 {{ room.name }}</span>
-                            <a href="#" class="btn btn-tiny">+ Storage</a>
+                            <a href="{{ url_for('building', building_id=building.id, add='storage', room=room.id) }}" class="btn btn-tiny">+ Storage</a>
                         </div>
                         <div class="storage-list">
                             {% for storage in room.storages %}

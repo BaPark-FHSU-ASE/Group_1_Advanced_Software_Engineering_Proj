@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, session
+from flask import Flask, render_template, redirect, url_for, request, session, flash
 
 import db
 
@@ -91,6 +91,41 @@ def building(building_id):
     if building_data is None:
         return redirect(url_for("dashboard"))
     return render_template("building.html", user=session["user"], building=building_data)
+
+
+@app.route("/building/<int:building_id>/rooms", methods=["POST"])
+def add_room(building_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Room name is required.", "error")
+    else:
+        try:
+            db.add_room(session["owner_id"], building_id, name)
+            flash(f'Added room "{name}".', "success")
+        except db.NotFoundOrNotOwned:
+            return redirect(url_for("dashboard"))
+    return redirect(url_for("building", building_id=building_id))
+
+
+@app.route("/rooms/<int:room_id>/storage", methods=["POST"])
+def add_storage(room_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    storage_type = request.form.get("storage_type", "").strip()
+    building_id = request.form.get("building_id", type=int)
+    if not storage_type:
+        flash("Storage type is required.", "error")
+        if building_id:
+            return redirect(url_for("building", building_id=building_id))
+        return redirect(url_for("dashboard"))
+    try:
+        _, building_id = db.add_storage(session["owner_id"], room_id, storage_type)
+    except db.NotFoundOrNotOwned:
+        return redirect(url_for("dashboard"))
+    flash(f'Added storage unit "{storage_type}".', "success")
+    return redirect(url_for("building", building_id=building_id))
 
 
 # ---------------------------------------------------------------------------

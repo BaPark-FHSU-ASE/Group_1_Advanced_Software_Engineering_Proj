@@ -12,8 +12,20 @@
                 <h2>{{ building.name }}</h2>
                 <p>📍 {{ building.address }}</p>
             </div>
-            <button class="btn btn-primary">+ Add Room</button>
+            {# ?add=room (the Dashboard's "+ Room" button) opens this form on arrival #}
+            <details class="inline-form" {% if request.args.get('add') == 'room' %}open{% endif %}>
+                <summary class="btn btn-primary">+ Add Room</summary>
+                <form method="POST" action="{{ url_for('add_room', building_id=building.id) }}" class="inline-form-body">
+                    <div class="form-group">
+                        <label for="room-name">Room name</label>
+                        <input type="text" id="room-name" name="name" maxlength="100" placeholder="e.g. Main storage" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Save Room</button>
+                </form>
+            </details>
         </div>
+
+        {% include "_flashes.html" %}
 
         <!-- Compliance snapshot -->
         <div class="card">
@@ -58,7 +70,19 @@
         <div class="card">
             <div class="card-header">
                 <span>🚪 {{ room.name }}</span>
-                <a href="#" class="btn btn-small">+ Storage Unit</a>
+                <details class="inline-form"
+                    {% if request.args.get('add') == 'storage' and request.args.get('room') == room.id|string %}open{% endif %}>
+                    <summary class="btn btn-small">+ Storage Unit</summary>
+                    <form method="POST" action="{{ url_for('add_storage', room_id=room.id) }}" class="inline-form-body">
+                        <input type="hidden" name="building_id" value="{{ building.id }}" />
+                        <div class="form-group">
+                            <label for="storage-type-{{ room.id }}">Storage type</label>
+                            <input type="text" id="storage-type-{{ room.id }}" name="storage_type" maxlength="100"
+                                   list="storage-type-suggestions" placeholder="e.g. Locker" required />
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Save Storage Unit</button>
+                    </form>
+                </details>
             </div>
             <div class="storage-list">
                 {% for storage in room.storages %}
@@ -68,10 +92,25 @@
                     <span class="storage-type">{{ storage.type }}</span>
                     <span class="storage-count">{{ storage.item_count }} items</span>
                 </div>
+                {% else %}
+                <span class="muted-note">No storage units yet.</span>
                 {% endfor %}
             </div>
         </div>
+        {% else %}
+        <div class="card">
+            <div class="empty-state">No rooms yet. Use "+ Add Room" to create one.</div>
+        </div>
         {% endfor %}
+
+        <!-- Suggestions only: any storage type is allowed (NF-REQ-1) -->
+        <datalist id="storage-type-suggestions">
+            <option value="Locker"></option>
+            <option value="Toolbox"></option>
+            <option value="Closet"></option>
+            <option value="Shelf"></option>
+            <option value="Storage Unit"></option>
+        </datalist>
     </main>
 </div>
 {% endblock %}
