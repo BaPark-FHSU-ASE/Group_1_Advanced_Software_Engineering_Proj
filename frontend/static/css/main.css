@@ -391,3 +391,97 @@ a:hover { text-decoration: underline; }
 .form-card { max-width: 480px; padding: 20px; }
 .form-hint { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
 .form-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* ── Phone layout (UI-REQ-6, NF-REQ-3) ───────────────────────── */
+
+/* Desktop: none of the phone-only pieces show */
+.nav-toggle,
+.mobile-topbar,
+.nav-overlay { display: none; }
+
+@media (max-width: 768px) {
+    .app-layout { flex-direction: column; }
+
+    /* Top bar with the menu button */
+    .mobile-topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        height: 56px;
+        padding: 0 12px;
+        background: var(--sidebar-bg);
+        color: #fff;
+    }
+
+    .menu-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+    .menu-button:active { background: var(--sidebar-hover); }
+    .mobile-logo { font-weight: 700; font-size: 17px; }
+
+    /* Sidebar becomes a drawer that slides in from the left */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 50;
+        width: min(280px, 85vw);
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+    }
+    .nav-toggle:checked ~ .sidebar { transform: translateX(0); }
+
+    /* Dark overlay behind the open drawer; tapping it closes the menu */
+    .nav-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: rgba(15, 23, 42, 0.45);
+    }
+    .nav-toggle:checked ~ .nav-overlay { display: block; }
+
+    /* Bigger tap targets in the drawer */
+    .nav-item { padding: 13px 18px; font-size: 15px; }
+    .nav-item.logout { padding: 10px 0; font-size: 14px; }
+
+    /* Content */
+    .main-content { padding: 16px; }
+    .page-header { flex-wrap: wrap; }
+    .card-header { flex-wrap: wrap; gap: 8px; }
+    .stats-row { flex-direction: column; gap: 10px; }
+    .detail-label { width: 110px; }
+
+    /* Wide tables scroll sideways inside their card instead of the page */
+    .card { overflow-x: auto; }
+
+    /* Buttons big enough to hit with a thumb */
+    .btn { min-height: 44px; padding: 11px 16px; font-size: 14px; }
+    .btn-small { min-height: 36px; padding: 8px 12px; }
+    .btn-tiny { min-height: 32px; padding: 6px 10px; }
+
+    /* Inline "add" forms open full width in the page instead of floating */
+    .inline-form[open] { flex-basis: 100%; }
+    .inline-form-body {
+        position: static;
+        width: 100%;
+        margin-top: 8px;
+        box-shadow: none;
+    }
+
+    /* 16px inputs stop iPhones zooming in when a field is tapped */
+    .form-group input,
+    .form-group select { font-size: 16px; padding: 11px 12px; }
+
+    .form-card { max-width: none; }
+}
