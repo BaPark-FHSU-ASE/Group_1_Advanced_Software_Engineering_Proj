@@ -91,6 +91,7 @@
                     <span class="storage-name">{{ storage.name }}</span>
                     <span class="storage-type">{{ storage.type }}</span>
                     <span class="storage-count">{{ storage.item_count }} items</span>
+                    <a href="{{ url_for('new_items', storage_id=storage.id) }}" class="btn btn-tiny btn-secondary">+ Items</a>
                 </div>
                 {% else %}
                 <span class="muted-note">No storage units yet.</span>

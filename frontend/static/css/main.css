@@ -336,7 +336,8 @@ a:hover { text-decoration: underline; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 9px 12px;
     border: 1px solid var(--border);
@@ -347,7 +348,8 @@ a:hover { text-decoration: underline; }
     transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
@@ -385,3 +387,7 @@ a:hover { text-decoration: underline; }
 }
 
 .empty-state { text-align: center; color: var(--muted); padding: 32px; }
+
+.form-card { max-width: 480px; padding: 20px; }
+.form-hint { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.form-actions { display: flex; gap: 8px; margin-top: 8px; }

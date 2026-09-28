@@ -140,6 +140,47 @@ def items():
     return render_template("items.html", user=session["user"], items=item_list)
 
 
+@app.route("/items/new", methods=["GET", "POST"])
+def new_items():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    owner_id = session["owner_id"]
+    error = None
+    form = {
+        "storage_id": request.values.get("storage_id", type=int),
+        "item_type_id": request.form.get("item_type_id", type=int),
+        "quantity": request.form.get("quantity", 1, type=int),
+        "name": request.form.get("name", "").strip(),
+    }
+
+    if request.method == "POST":
+        if not form["storage_id"] or not form["item_type_id"]:
+            error = "Choose an item type and a storage unit."
+        elif form["quantity"] is None or not (1 <= form["quantity"] <= db.MAX_ITEMS_PER_ADD):
+            error = f"Quantity must be between 1 and {db.MAX_ITEMS_PER_ADD}."
+        else:
+            try:
+                new_ids = db.add_items(owner_id, form["storage_id"], form["item_type_id"],
+                                       form["quantity"], form["name"])
+            except db.NotFoundOrNotOwned:
+                error = "That storage unit or item type wasn't found."
+            else:
+                flash(f"Added {len(new_ids)} item{'s' if len(new_ids) != 1 else ''}.", "success")
+                if len(new_ids) == 1:
+                    return redirect(url_for("item_detail", item_id=new_ids[0]))
+                return redirect(url_for("items"))
+
+    return render_template(
+        "item_form.html",
+        user=session["user"],
+        item_types=db.get_item_types(),
+        storages=db.get_storage_choices(owner_id),
+        form=form,
+        max_qty=db.MAX_ITEMS_PER_ADD,
+        error=error,
+    )
+
+
 @app.route("/items/<int:item_id>")
 def item_detail(item_id):
     if "user" not in session:

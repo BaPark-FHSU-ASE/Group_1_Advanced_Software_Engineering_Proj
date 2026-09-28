@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Add Items{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb"><a href="{{ url_for('items') }}">Items</a> / Add Items</div>
+                <h2>Add Items</h2>
+                <p>Add one item, or several of the same type at once</p>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+
+        {% if not storages %}
+        <div class="card">
+            <div class="empty-state">
+                You don't have any storage units yet. Open a building from the
+                <a href="{{ url_for('dashboard') }}">Dashboard</a> and add a room and a storage unit first.
+            </div>
+        </div>
+        {% else %}
+        <div class="card form-card">
+            <form method="POST" action="{{ url_for('new_items') }}">
+                <div class="form-group">
+                    <label for="item_type_id">Item type</label>
+                    <select id="item_type_id" name="item_type_id" required>
+                        <option value="">Choose a type…</option>
+                        {% for t in item_types %}
+                        <option value="{{ t.id }}" {% if form.item_type_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="storage_id">Storage unit</label>
+                    <select id="storage_id" name="storage_id" required>
+                        <option value="">Choose where it's stored…</option>
+                        {% for building, group in storages|groupby("building") %}
+                        <optgroup label="{{ building }}">
+                            {% for s in group %}
+                            <option value="{{ s.id }}" {% if form.storage_id == s.id %}selected{% endif %}>{{ s.label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="number" id="quantity" name="quantity" min="1" max="{{ max_qty }}"
+                           value="{{ form.quantity or 1 }}" inputmode="numeric" required />
+                    <span class="form-hint">Each unit becomes its own item with its own history.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Name <span class="muted-note">(optional)</span></label>
+                    <input type="text" id="name" name="name" maxlength="90" value="{{ form.name }}"
+                           placeholder="Leave blank to number them automatically" />
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Items</button>
+                    <a href="{{ url_for('items') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

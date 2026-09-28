@@ -10,6 +10,11 @@ import pytest
 
 import db
 
+@pytest.fixture(autouse=True)
+def _isolated(fresh_db):
+    """Every test here writes, so each gets its own copy of the database."""
+
+
 OWNER = 1
 OTHER_OWNER = 999999
 
