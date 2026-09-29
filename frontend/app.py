@@ -79,6 +79,54 @@ def dashboard():
     return render_template("dashboard.html", user=session["user"], businesses=businesses)
 
 
+@app.route("/businesses", methods=["POST"])
+def add_business():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Business name is required.", "error")
+    else:
+        db.add_business(session["owner_id"], name)
+        flash(f'Added business "{name}".', "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/businesses/<int:business_id>/rename", methods=["POST"])
+def rename_business(business_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Business name is required.", "error")
+        return redirect(url_for("dashboard"))
+    try:
+        db.rename_business(session["owner_id"], business_id, name)
+    except db.NotFoundOrNotOwned:
+        return redirect(url_for("dashboard"))
+    flash(f'Renamed business to "{name}".', "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/businesses/<int:business_id>/buildings", methods=["POST"])
+def add_building(business_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    street = request.form.get("street_address", "").strip()
+    city = request.form.get("city", "").strip()
+    state = request.form.get("state", "").strip()
+    if not street or not city or not state:
+        flash("Street address, city and state are all required.", "error")
+        return redirect(url_for("dashboard"))
+    try:
+        building_id = db.add_building(session["owner_id"], business_id, street, city, state)
+    except db.NotFoundOrNotOwned:
+        return redirect(url_for("dashboard"))
+    # A new building is empty, so land on it with the Add Room form open.
+    flash(f"Added building at {street}, {city}. Add a room next.", "success")
+    return redirect(url_for("building", building_id=building_id, add="room"))
+
+
 # ---------------------------------------------------------------------------
 # Buildings
 # ---------------------------------------------------------------------------

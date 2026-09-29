@@ -371,6 +371,7 @@ a:hover { text-decoration: underline; }
 .inline-form > summary { list-style: none; }
 .inline-form > summary::-webkit-details-marker { display: none; }
 .inline-form[open] > summary { background: var(--accent-dark); }
+.inline-form[open] > summary.btn-secondary { background: #e2e8f0; color: var(--text); }
 
 .inline-form-body {
     position: absolute;

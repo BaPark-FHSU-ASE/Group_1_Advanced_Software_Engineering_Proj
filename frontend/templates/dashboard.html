@@ -11,16 +11,53 @@
                 <h2>Dashboard</h2>
                 <p>Your full inventory hierarchy at a glance</p>
             </div>
-            <button class="btn btn-primary">+ Add Business</button>
+            <details class="inline-form">
+                <summary class="btn btn-primary">+ Add Business</summary>
+                <form method="POST" action="{{ url_for('add_business') }}" class="inline-form-body">
+                    <div class="form-group">
+                        <label for="business-name">Business name</label>
+                        <input type="text" id="business-name" name="name" maxlength="100" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Save Business</button>
+                </form>
+            </details>
         </div>
+
+        {% include "_flashes.html" %}
 
         {% for biz in businesses %}
         <div class="card">
             <div class="card-header">
                 <span>🏢 <strong>{{ biz.name }}</strong></span>
                 <div class="card-actions">
-                    <a href="#" class="btn btn-small">+ Building</a>
-                    <a href="#" class="btn btn-small btn-secondary">Edit</a>
+                    <details class="inline-form">
+                        <summary class="btn btn-small">+ Building</summary>
+                        <form method="POST" action="{{ url_for('add_building', business_id=biz.id) }}" class="inline-form-body">
+                            <div class="form-group">
+                                <label for="street-{{ biz.id }}">Street address</label>
+                                <input type="text" id="street-{{ biz.id }}" name="street_address" maxlength="100" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="city-{{ biz.id }}">City</label>
+                                <input type="text" id="city-{{ biz.id }}" name="city" maxlength="100" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="state-{{ biz.id }}">State</label>
+                                <input type="text" id="state-{{ biz.id }}" name="state" maxlength="100" placeholder="e.g. Kansas" required />
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Save Building</button>
+                        </form>
+                    </details>
+                    <details class="inline-form">
+                        <summary class="btn btn-small btn-secondary">Edit</summary>
+                        <form method="POST" action="{{ url_for('rename_business', business_id=biz.id) }}" class="inline-form-body">
+                            <div class="form-group">
+                                <label for="rename-{{ biz.id }}">Business name</label>
+                                <input type="text" id="rename-{{ biz.id }}" name="name" maxlength="100" value="{{ biz.name }}" required />
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Save Name</button>
+                        </form>
+                    </details>
                 </div>
             </div>
 
@@ -54,6 +91,8 @@
                     </div>
                     {% endfor %}
                 </div>
+                {% else %}
+                <span class="muted-note">No buildings yet. Use "+ Building" to add one.</span>
                 {% endfor %}
             </div>
         </div>

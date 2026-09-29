@@ -691,3 +691,58 @@ def update_item_status(owner_id, item_id, new_status, storage_id=None):
         raise
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Businesses and buildings (the Dashboard's add/edit buttons)
+# ---------------------------------------------------------------------------
+
+def add_business(owner_id, name):
+    """Create a business for the owner. Returns the new business_id."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO business (name, owner_id) VALUES (?, ?)",
+            (name, owner_id),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def rename_business(owner_id, business_id, name):
+    """Rename one of the owner's businesses."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "UPDATE business SET name = ? WHERE business_id = ? AND owner_id = ?",
+            (name, business_id, owner_id),
+        )
+        if cur.rowcount == 0:
+            raise NotFoundOrNotOwned()
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def add_building(owner_id, business_id, street_address, city, state):
+    """Create a building under one of the owner's businesses.
+    Returns the new building_id."""
+    conn = get_connection()
+    try:
+        owned = conn.execute(
+            "SELECT 1 FROM business WHERE business_id = ? AND owner_id = ?",
+            (business_id, owner_id),
+        ).fetchone()
+        if owned is None:
+            raise NotFoundOrNotOwned()
+        cur = conn.execute(
+            "INSERT INTO building (business_id, street_address, city, state) "
+            "VALUES (?, ?, ?, ?)",
+            (business_id, street_address, city, state),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
