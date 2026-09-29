@@ -94,3 +94,36 @@ def test_dashboard_buttons_are_real_forms():
     assert 'action="/businesses"' in html
     assert 'action="/businesses/1/buildings"' in html
     assert 'action="/businesses/1/rename"' in html
+
+
+# --- Dashboard summary cards -----------------------------------------------
+
+def test_building_cards_have_summary_counts():
+    building = db.get_dashboard_hierarchy(OWNER)[0]["buildings"][0]
+    assert building["room_count"] == len(building["rooms"])
+    assert building["storage_count"] == sum(len(r["storages"]) for r in building["rooms"])
+    assert building["item_count"] == sum(
+        s["item_count"] for r in building["rooms"] for s in r["storages"]
+    )
+
+
+def test_hays_card_shows_its_shortages():
+    # Hays is short on nail guns in the seed data (see test_compliance.py),
+    # so its card must count at least one shortage.
+    buildings = db.get_dashboard_hierarchy(OWNER)[0]["buildings"]
+    hays = next(b for b in buildings if b["name"].startswith("Hays"))
+    assert hays["shortage_count"] >= 1
+
+
+def test_new_building_card_is_empty():
+    db.add_building(OWNER, 1, "9 Oak St", "Salina", "Kansas")
+    buildings = db.get_dashboard_hierarchy(OWNER)[0]["buildings"]
+    new = buildings[-1]
+    assert (new["room_count"], new["storage_count"], new["item_count"], new["shortage_count"]) == (0, 0, 0, 0)
+
+
+def test_dashboard_has_no_per_room_buttons():
+    # Rooms and storage are added from the building page now.
+    html = _client(OWNER).get("/dashboard").get_data(as_text=True)
+    assert "+ Room" not in html
+    assert "+ Storage" not in html

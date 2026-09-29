@@ -168,6 +168,17 @@ def get_dashboard_hierarchy(owner_id):
             (owner_id,),
         ).fetchall()
 
+        # How many item types each building is short on, for the red badge
+        # on its Dashboard card (same numbers as the Surplus & Shortage page).
+        shortages = dict(conn.execute(
+            "SELECT p.building_id, COUNT(*) FROM v_building_item_type_position p "
+            "JOIN building bl ON bl.building_id = p.building_id "
+            "JOIN business bs ON bs.business_id = bl.business_id "
+            "WHERE bs.owner_id = ? AND p.shortage_qty > 0 "
+            "GROUP BY p.building_id",
+            (owner_id,),
+        ).fetchall())
+
         storages_by_room = {}
         for s in storages:
             storages_by_room.setdefault(s["room_id"], []).append({
@@ -187,11 +198,18 @@ def get_dashboard_hierarchy(owner_id):
 
         buildings_by_business = {}
         for b in buildings:
+            b_rooms = rooms_by_building.get(b["building_id"], [])
+            b_storages = [st for r in b_rooms for st in r["storages"]]
             buildings_by_business.setdefault(b["business_id"], []).append({
                 "id": b["building_id"],
                 "name": f'{b["city"]} — {b["street_address"]}',
                 "address": f'{b["street_address"]}, {b["city"]}, {b["state"]}',
-                "rooms": rooms_by_building.get(b["building_id"], []),
+                "rooms": b_rooms,
+                # Summary numbers for the Dashboard card
+                "room_count": len(b_rooms),
+                "storage_count": len(b_storages),
+                "item_count": sum(st["item_count"] for st in b_storages),
+                "shortage_count": shortages.get(b["building_id"], 0),
             })
 
         return [

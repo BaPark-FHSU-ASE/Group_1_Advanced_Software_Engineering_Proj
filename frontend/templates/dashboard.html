@@ -9,7 +9,7 @@
         <div class="page-header">
             <div>
                 <h2>Dashboard</h2>
-                <p>Your full inventory hierarchy at a glance</p>
+                <p>Your buildings at a glance. Open one to manage its rooms and storage.</p>
             </div>
             <details class="inline-form">
                 <summary class="btn btn-primary">+ Add Business</summary>
@@ -31,7 +31,7 @@
                 <span>🏢 <strong>{{ biz.name }}</strong></span>
                 <div class="card-actions">
                     <details class="inline-form">
-                        <summary class="btn btn-small">+ Building</summary>
+                        <summary class="btn btn-small btn-ghost">+ Building</summary>
                         <form method="POST" action="{{ url_for('add_building', business_id=biz.id) }}" class="inline-form-body">
                             <div class="form-group">
                                 <label for="street-{{ biz.id }}">Street address</label>
@@ -49,7 +49,7 @@
                         </form>
                     </details>
                     <details class="inline-form">
-                        <summary class="btn btn-small btn-secondary">Edit</summary>
+                        <summary class="btn btn-small btn-text">Rename</summary>
                         <form method="POST" action="{{ url_for('rename_business', business_id=biz.id) }}" class="inline-form-body">
                             <div class="form-group">
                                 <label for="rename-{{ biz.id }}">Business name</label>
@@ -63,34 +63,26 @@
 
             <div class="building-grid">
                 {% for building in biz.buildings %}
-                <div class="building-card">
-                    <div class="building-header">
-                        <div>
-                            <div class="building-name">🏗 <a href="{{ url_for('building', building_id=building.id) }}">{{ building.name }}</a></div>
-                            <div class="building-address">📍 {{ building.address }}</div>
-                        </div>
-                        <a href="{{ url_for('building', building_id=building.id, add='room') }}" class="btn btn-small">+ Room</a>
+                {# The whole card is a link; adding rooms and storage happens on the building page. #}
+                <a href="{{ url_for('building', building_id=building.id) }}" class="building-card building-link">
+                    <div class="building-name">🏗 {{ building.name }}</div>
+                    <div class="building-address">📍 {{ building.address }}</div>
+                    <div class="building-stats">
+                        {{ building.room_count }} room{{ 's' if building.room_count != 1 }}
+                        · {{ building.storage_count }} storage unit{{ 's' if building.storage_count != 1 }}
+                        · {{ building.item_count }} item{{ 's' if building.item_count != 1 }}
                     </div>
-
-                    {% for room in building.rooms %}
-                    <div class="room-block">
-                        <div class="room-header">
-                            <span class="room-name">🚪 {{ room.name }}</span>
-                            <a href="{{ url_for('building', building_id=building.id, add='storage', room=room.id) }}" class="btn btn-tiny">+ Storage</a>
-                        </div>
-                        <div class="storage-list">
-                            {% for storage in room.storages %}
-                            <div class="storage-tag">
-                                <span class="storage-icon">📦</span>
-                                <span class="storage-name">{{ storage.name }}</span>
-                                <span class="storage-type">{{ storage.type }}</span>
-                                <span class="storage-count">{{ storage.item_count }} items</span>
-                            </div>
-                            {% endfor %}
-                        </div>
+                    <div class="building-status">
+                        {% if building.shortage_count %}
+                        <span class="badge badge-shortage">{{ building.shortage_count }} shortage{{ 's' if building.shortage_count != 1 }}</span>
+                        {% elif building.item_count %}
+                        <span class="badge badge-ok">Fully stocked</span>
+                        {% else %}
+                        <span class="muted-note">Empty — open to add rooms</span>
+                        {% endif %}
+                        <span class="building-open">Open →</span>
                     </div>
-                    {% endfor %}
-                </div>
+                </a>
                 {% else %}
                 <span class="muted-note">No buildings yet. Use "+ Building" to add one.</span>
                 {% endfor %}
