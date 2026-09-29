@@ -75,7 +75,7 @@ def dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
 
-    businesses = db.get_dashboard_hierarchy()
+    businesses = db.get_dashboard_hierarchy(session["owner_id"])
     return render_template("dashboard.html", user=session["user"], businesses=businesses)
 
 
@@ -87,7 +87,7 @@ def dashboard():
 def building(building_id):
     if "user" not in session:
         return redirect(url_for("login"))
-    building_data = db.get_building(building_id)
+    building_data = db.get_building(session["owner_id"], building_id)
     if building_data is None:
         return redirect(url_for("dashboard"))
     return render_template("building.html", user=session["user"], building=building_data)
@@ -136,7 +136,7 @@ def add_storage(room_id):
 def items():
     if "user" not in session:
         return redirect(url_for("login"))
-    item_list = db.get_items()
+    item_list = db.get_items(session["owner_id"])
     return render_template("items.html", user=session["user"], items=item_list)
 
 
@@ -185,7 +185,7 @@ def new_items():
 def item_detail(item_id):
     if "user" not in session:
         return redirect(url_for("login"))
-    item = db.get_item_detail(item_id)
+    item = db.get_item_detail(session["owner_id"], item_id)
     if item is None:
         return redirect(url_for("items"))
     return render_template("item_detail.html", user=session["user"], item=item)
@@ -199,7 +199,7 @@ def item_detail(item_id):
 def compliance():
     if "user" not in session:
         return redirect(url_for("login"))
-    report = db.get_compliance_report()
+    report = db.get_compliance_report(session["owner_id"])
     return render_template("compliance.html", user=session["user"], report=report)
 
 

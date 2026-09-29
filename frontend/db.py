@@ -94,8 +94,40 @@ def verify_owner(email, password):
         conn.close()
 
 
-def get_dashboard_hierarchy():
-    """Business -> Building -> Room -> Storage, with item counts per storage.
+# ---------------------------------------------------------------------------
+# Owner filtering (NF-REQ-12)
+#
+# Every read below takes the logged-in owner's id and only returns that
+# owner's records. Ownership comes from the hierarchy:
+# business.owner_id -> building -> room -> storage -> item.
+# ---------------------------------------------------------------------------
+
+# An item's last known storage unit: where it is now, or, while it's In
+# Transit (storage_id is NULL), where its most recent movement left from.
+# Without this, In Transit items would belong to nobody and disappear from
+# their owner's lists. The item table has no owner column, so this is the
+# only way to trace an In Transit item back to its owner.
+_ITEM_LAST_STORAGE_SQL = (
+    "COALESCE(i.storage_id, ("
+    "  SELECT COALESCE(m.to_storage_id, m.from_storage_id) FROM item_movement m "
+    "  WHERE m.item_id = i.item_id "
+    "    AND (m.to_storage_id IS NOT NULL OR m.from_storage_id IS NOT NULL) "
+    "  ORDER BY m.moved_at DESC, m.item_movement_id DESC LIMIT 1"
+    "))"
+)
+
+# Joins that end at the owning business (alias `obs`) for an item aliased `i`.
+_ITEM_OWNER_JOINS = (
+    f"JOIN storage os ON os.storage_id = {_ITEM_LAST_STORAGE_SQL} "
+    "JOIN room ort ON ort.room_id = os.room_id "
+    "JOIN building obl ON obl.building_id = ort.building_id "
+    "JOIN business obs ON obs.business_id = obl.business_id "
+)
+
+
+def get_dashboard_hierarchy(owner_id):
+    """Business -> Building -> Room -> Storage, with item counts per storage,
+    for one owner's businesses only.
 
     Returns a list shaped like app.py's old mock `businesses` list so the
     dashboard template needs no changes.
@@ -103,24 +135,37 @@ def get_dashboard_hierarchy():
     conn = get_connection()
     try:
         businesses = conn.execute(
-            "SELECT business_id, name FROM business ORDER BY business_id"
+            "SELECT business_id, name FROM business WHERE owner_id = ? "
+            "ORDER BY business_id",
+            (owner_id,),
         ).fetchall()
 
         buildings = conn.execute(
-            "SELECT building_id, business_id, city, state, street_address "
-            "FROM building ORDER BY building_id"
+            "SELECT bl.building_id, bl.business_id, bl.city, bl.state, bl.street_address "
+            "FROM building bl "
+            "JOIN business bs ON bs.business_id = bl.business_id "
+            "WHERE bs.owner_id = ? ORDER BY bl.building_id",
+            (owner_id,),
         ).fetchall()
 
         rooms = conn.execute(
-            "SELECT room_id, building_id, location FROM room ORDER BY room_id"
+            "SELECT r.room_id, r.building_id, r.location FROM room r "
+            "JOIN building bl ON bl.building_id = r.building_id "
+            "JOIN business bs ON bs.business_id = bl.business_id "
+            "WHERE bs.owner_id = ? ORDER BY r.room_id",
+            (owner_id,),
         ).fetchall()
 
         storages = conn.execute(
             "SELECT s.storage_id, s.room_id, s.storage_type, "
             "       COALESCE(c.item_cnt, 0) AS item_count "
             "FROM storage s "
+            "JOIN room r ON r.room_id = s.room_id "
+            "JOIN building bl ON bl.building_id = r.building_id "
+            "JOIN business bs ON bs.business_id = bl.business_id "
             "LEFT JOIN v_storage_item_count c ON c.storage_id = s.storage_id "
-            "ORDER BY s.storage_id"
+            "WHERE bs.owner_id = ? ORDER BY s.storage_id",
+            (owner_id,),
         ).fetchall()
 
         storages_by_room = {}
@@ -161,14 +206,20 @@ def get_dashboard_hierarchy():
         conn.close()
 
 
-def get_building(building_id):
-    """Building detail + rooms/storages + compliance snapshot for that building."""
+def get_building(owner_id, building_id):
+    """Building detail + rooms/storages + compliance snapshot for that building.
+
+    Returns None if the building doesn't exist or belongs to another owner;
+    the route treats both the same, so ids can't be probed (NF-REQ-12).
+    """
     conn = get_connection()
     try:
         b = conn.execute(
-            "SELECT building_id, city, state, street_address "
-            "FROM building WHERE building_id = ?",
-            (building_id,),
+            "SELECT bl.building_id, bl.city, bl.state, bl.street_address "
+            "FROM building bl "
+            "JOIN business bs ON bs.business_id = bl.business_id "
+            "WHERE bl.building_id = ? AND bs.owner_id = ?",
+            (building_id, owner_id),
         ).fetchone()
         if b is None:
             return None
@@ -235,8 +286,8 @@ def get_building(building_id):
         conn.close()
 
 
-def get_items():
-    """All items with their type, status, and full location path."""
+def get_items(owner_id):
+    """All of one owner's items with their type, status, and location path."""
     conn = get_connection()
     try:
         rows = conn.execute(
@@ -247,7 +298,10 @@ def get_items():
             "LEFT JOIN storage s ON s.storage_id = i.storage_id "
             "LEFT JOIN room r ON r.room_id = s.room_id "
             "LEFT JOIN building b ON b.building_id = r.building_id "
-            "ORDER BY i.item_id"
+            + _ITEM_OWNER_JOINS +
+            "WHERE obs.owner_id = ? "
+            "ORDER BY i.item_id",
+            (owner_id,),
         ).fetchall()
         return [
             {
@@ -267,8 +321,11 @@ def get_items():
         conn.close()
 
 
-def get_item_detail(item_id):
-    """Single item + its full movement history, most recent first."""
+def get_item_detail(owner_id, item_id):
+    """Single item + its full movement history, most recent first.
+
+    Returns None if the item doesn't exist or belongs to another owner.
+    """
     conn = get_connection()
     try:
         item = conn.execute(
@@ -280,8 +337,9 @@ def get_item_detail(item_id):
             "LEFT JOIN storage s ON s.storage_id = i.storage_id "
             "LEFT JOIN room r ON r.room_id = s.room_id "
             "LEFT JOIN building b ON b.building_id = r.building_id "
-            "WHERE i.item_id = ?",
-            (item_id,),
+            + _ITEM_OWNER_JOINS +
+            "WHERE i.item_id = ? AND obs.owner_id = ?",
+            (item_id, owner_id),
         ).fetchone()
         if item is None:
             return None
@@ -324,8 +382,8 @@ def get_item_detail(item_id):
         conn.close()
 
 
-def get_compliance_report():
-    """Surplus/shortage across every building and item type."""
+def get_compliance_report(owner_id):
+    """Surplus/shortage across every one of the owner's buildings and item types."""
     conn = get_connection()
     try:
         rows = conn.execute(
@@ -335,8 +393,11 @@ def get_compliance_report():
             "       (p.present_qty - p.target_qty) AS variance "
             "FROM v_building_item_type_position p "
             "JOIN building b ON b.building_id = p.building_id "
+            "JOIN business bs ON bs.business_id = b.business_id "
             "JOIN item_type it ON it.item_type_id = p.item_type_id "
-            "ORDER BY b.city, it.name"
+            "WHERE bs.owner_id = ? "
+            "ORDER BY b.city, it.name",
+            (owner_id,),
         ).fetchall()
         return [
             {

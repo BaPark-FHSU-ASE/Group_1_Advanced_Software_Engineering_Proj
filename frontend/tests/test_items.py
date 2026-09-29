@@ -1,17 +1,20 @@
 """
-Tests for db.get_items() and db.get_item_detail().
+Tests for db.get_items(OWNER) and db.get_item_detail(OWNER, ).
 """
 
 import db
 
+# The seeded account (dale@prairieroofing.example) owns all the seed data.
+OWNER = 1
+
 
 def test_get_items_returns_all_ninety_two_items():
-    items = db.get_items()
+    items = db.get_items(OWNER)
     assert len(items) == 92
 
 
 def test_in_transit_item_shows_no_current_location():
-    items = db.get_items()
+    items = db.get_items(OWNER)
     in_transit = [i for i in items if i["status"] == "In Transit"]
     assert len(in_transit) == 1
     item = in_transit[0]
@@ -21,12 +24,12 @@ def test_in_transit_item_shows_no_current_location():
 
 
 def test_get_item_detail_returns_none_for_missing_item():
-    assert db.get_item_detail(999999) is None
+    assert db.get_item_detail(OWNER, 999999) is None
 
 
 def test_get_item_detail_includes_movement_history():
     # Item 1 (Nail Gun #1) has at least its initial placement recorded.
-    item = db.get_item_detail(1)
+    item = db.get_item_detail(OWNER, 1)
     assert item is not None
     assert item["name"] == "Nail Gun #1"
     assert len(item["movement_history"]) >= 1
@@ -34,6 +37,6 @@ def test_get_item_detail_includes_movement_history():
 
 
 def test_movement_history_is_most_recent_first():
-    item = db.get_item_detail(1)
+    item = db.get_item_detail(OWNER, 1)
     dates = [m["date"] for m in item["movement_history"]]
     assert dates == sorted(dates, reverse=True)
