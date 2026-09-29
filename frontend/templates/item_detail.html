@@ -16,6 +16,38 @@
 
         {% include "_flashes.html" %}
 
+        <!-- Status change (REQ-11). Up top and full width on phones so it
+             can be used one-handed out in the field. -->
+        <div class="card">
+            <div class="card-header"><span>🔁 Change Status</span></div>
+            <form method="POST" action="{{ url_for('item_status', item_id=item.id) }}" class="status-form">
+                {% if item.status == "In Transit" %}
+                <div class="form-group">
+                    <label for="storage_id">Arrived at</label>
+                    <select id="storage_id" name="storage_id" required>
+                        <option value="">Choose a storage unit…</option>
+                        {% for building, group in storages|groupby("building") %}
+                        <optgroup label="{{ building }}">
+                            {% for s in group %}
+                            <option value="{{ s.id }}">{{ s.label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="status-actions">
+                    {% for status in statuses %}
+                    {% if status == item.status %}
+                    <button type="button" class="btn status-btn status-current" disabled>✓ {{ status }}</button>
+                    {% else %}
+                    <button type="submit" name="status" value="{{ status }}" class="btn btn-secondary status-btn">{{ status }}</button>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </form>
+        </div>
+
         <!-- Item details -->
         <div class="card">
             <div class="card-header"><span>📋 Details</span></div>
@@ -60,6 +92,7 @@
                         <th>Date</th>
                         <th>From</th>
                         <th>To</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,10 +101,11 @@
                         <td>{{ move.date }}</td>
                         <td>{{ move.from }}</td>
                         <td>{{ move.to }}</td>
+                        <td>{{ move.status_change or "—" }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="3" class="empty-state">No movement history.</td>
+                        <td colspan="4" class="empty-state">No movement history.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

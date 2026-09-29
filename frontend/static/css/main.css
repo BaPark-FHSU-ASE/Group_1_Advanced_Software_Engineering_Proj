@@ -392,6 +392,15 @@ a:hover { text-decoration: underline; }
 .form-hint { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
 .form-actions { display: flex; gap: 8px; margin-top: 8px; }
 
+/* ── Item status buttons (REQ-11) ─────────────────────────────── */
+
+.status-form { padding: 16px; }
+.status-form .form-group { max-width: 420px; }
+.status-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.status-btn { flex: 1; min-width: 120px; padding: 12px 16px; font-size: 14px; text-align: center; }
+.status-current,
+.status-current:hover { background: var(--success-bg); color: var(--success-text); cursor: default; }
+
 /* ── Phone layout (UI-REQ-6, NF-REQ-3) ───────────────────────── */
 
 /* Desktop: none of the phone-only pieces show */
@@ -484,4 +493,9 @@ a:hover { text-decoration: underline; }
     .form-group select { font-size: 16px; padding: 11px 12px; }
 
     .form-card { max-width: none; }
+
+    /* Status buttons stack full width, big enough for a gloved thumb */
+    .status-actions { flex-direction: column; }
+    .status-btn { width: 100%; min-height: 52px; font-size: 16px; }
+    .status-form .form-group { max-width: none; }
 }

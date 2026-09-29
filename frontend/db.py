@@ -330,7 +330,7 @@ def get_item_detail(owner_id, item_id):
     try:
         item = conn.execute(
             "SELECT i.item_id, i.item_name, it.name AS item_type, i.item_status, "
-            "       i.date_added, "
+            "       i.storage_id, i.date_added, "
             "       b.city AS building, r.location AS room, s.storage_type AS storage "
             "FROM item i "
             "JOIN item_type it ON it.item_type_id = i.item_type_id "
@@ -345,7 +345,7 @@ def get_item_detail(owner_id, item_id):
             return None
 
         history = conn.execute(
-            "SELECT m.moved_at, "
+            "SELECT m.moved_at, m.from_status, m.to_status, "
             "       (fb.city || ' / ' || fr.location || ' / ' || fs.storage_type) AS from_loc, "
             "       (tb.city || ' / ' || tr.location || ' / ' || ts.storage_type) AS to_loc "
             "FROM item_movement m "
@@ -356,7 +356,7 @@ def get_item_detail(owner_id, item_id):
             "LEFT JOIN room tr ON tr.room_id = ts.room_id "
             "LEFT JOIN building tb ON tb.building_id = tr.building_id "
             "WHERE m.item_id = ? "
-            "ORDER BY m.moved_at DESC",
+            "ORDER BY m.moved_at DESC, m.item_movement_id DESC",
             (item_id,),
         ).fetchall()
 
@@ -368,12 +368,18 @@ def get_item_detail(owner_id, item_id):
             "building": item["building"] or "In transit",
             "room": item["room"] or "—",
             "storage": item["storage"] or "—",
+            "storage_id": item["storage_id"],
             "date_added": (item["date_added"] or "—")[:10],
             "movement_history": [
                 {
                     "date": (row["moved_at"] or "—")[:10],
                     "from": row["from_loc"] or "—",
                     "to": row["to_loc"] or "—",
+                    # Set when the row records a status change (REQ-11)
+                    "status_change": (
+                        f'{row["from_status"] or "—"} → {row["to_status"]}'
+                        if row["to_status"] else None
+                    ),
                 }
                 for row in history
             ],
@@ -591,6 +597,95 @@ def add_items(owner_id, storage_id, item_type_id, quantity, name=""):
 
         conn.commit()
         return new_ids
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Changing an item's status (REQ-11, REQ-12)
+# ---------------------------------------------------------------------------
+
+ITEM_STATUSES = ("In Storage", "In Use", "In Transit")
+
+
+def update_item_status(owner_id, item_id, new_status, storage_id=None):
+    """Change an item's status and log it in its movement history.
+
+    Three cases, matching how schema v6 models status and location:
+
+    - In Storage <-> In Use: the item stays where it is. The movement row
+      records only the status change (from_status/to_status).
+    - Anything -> In Transit: the item leaves its storage unit, so storage_id
+      becomes NULL. The movement row records where it left from, which is
+      also how its owner is still traced while it's travelling.
+    - In Transit -> In Storage/In Use: the item has arrived somewhere, so a
+      destination storage_id (one of the owner's) is required.
+
+    The item update and the movement row are written in one transaction.
+    Returns True if the status changed, False if it was already new_status.
+    Raises ValueError for a bad status or a missing destination, and
+    NotFoundOrNotOwned if the item or destination isn't the owner's.
+    """
+    if new_status not in ITEM_STATUSES:
+        raise ValueError(f"Unknown status: {new_status}")
+
+    conn = get_connection()
+    try:
+        item = conn.execute(
+            "SELECT i.item_id, i.item_status, i.storage_id FROM item i "
+            + _ITEM_OWNER_JOINS +
+            "WHERE i.item_id = ? AND obs.owner_id = ?",
+            (item_id, owner_id),
+        ).fetchone()
+        if item is None:
+            raise NotFoundOrNotOwned()
+
+        old_status = item["item_status"]
+        old_storage = item["storage_id"]
+        if new_status == old_status:
+            return False
+
+        if new_status == "In Transit":
+            new_storage = None
+        elif old_status == "In Transit":
+            if not storage_id:
+                raise ValueError("Choose where the item arrived.")
+            owned = conn.execute(
+                "SELECT 1 FROM storage s "
+                "JOIN room r ON r.room_id = s.room_id "
+                "JOIN building bl ON bl.building_id = r.building_id "
+                "JOIN business bs ON bs.business_id = bl.business_id "
+                "WHERE s.storage_id = ? AND bs.owner_id = ?",
+                (storage_id, owner_id),
+            ).fetchone()
+            if owned is None:
+                raise NotFoundOrNotOwned()
+            new_storage = storage_id
+        else:
+            new_storage = old_storage
+
+        conn.execute(
+            "UPDATE item SET item_status = ?, storage_id = ? WHERE item_id = ?",
+            (new_status, new_storage, item_id),
+        )
+        location_changed = new_storage != old_storage
+        conn.execute(
+            "INSERT INTO item_movement "
+            "(item_id, from_storage_id, to_storage_id, from_status, to_status) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                item_id,
+                old_storage if location_changed else None,
+                new_storage if location_changed else None,
+                old_status,
+                new_status,
+            ),
+        )
+        conn.commit()
+        return True
     except Exception:
         conn.rollback()
         raise

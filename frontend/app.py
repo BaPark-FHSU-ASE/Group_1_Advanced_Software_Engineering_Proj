@@ -185,10 +185,33 @@ def new_items():
 def item_detail(item_id):
     if "user" not in session:
         return redirect(url_for("login"))
-    item = db.get_item_detail(session["owner_id"], item_id)
+    owner_id = session["owner_id"]
+    item = db.get_item_detail(owner_id, item_id)
     if item is None:
         return redirect(url_for("items"))
-    return render_template("item_detail.html", user=session["user"], item=item)
+    # An In Transit item needs somewhere to arrive, so offer the owner's
+    # storage units alongside the status buttons.
+    storages = db.get_storage_choices(owner_id) if item["status"] == "In Transit" else []
+    return render_template("item_detail.html", user=session["user"], item=item,
+                           statuses=db.ITEM_STATUSES, storages=storages)
+
+
+@app.route("/items/<int:item_id>/status", methods=["POST"])
+def item_status(item_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    new_status = request.form.get("status", "")
+    storage_id = request.form.get("storage_id", type=int)
+    try:
+        changed = db.update_item_status(session["owner_id"], item_id, new_status, storage_id)
+    except db.NotFoundOrNotOwned:
+        return redirect(url_for("items"))
+    except ValueError as e:
+        flash(str(e), "error")
+    else:
+        if changed:
+            flash(f"Marked as {new_status}.", "success")
+    return redirect(url_for("item_detail", item_id=item_id))
 
 
 # ---------------------------------------------------------------------------
