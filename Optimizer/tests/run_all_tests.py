@@ -13,6 +13,7 @@ TEST_FILES = [
     "Optimizer/tests/test_residual.py",
     "Optimizer/tests/test_nearest_source.py",
     "Optimizer/tests/test_enumerate_bruteforce.py",
+    "Optimizer/tests/test_branch_and_bound.py",
     "Optimizer/tests/test_plan_invariants.py",
 ]
 
