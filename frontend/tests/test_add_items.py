@@ -33,7 +33,7 @@ def _movements_for(item_id):
 
 def test_add_one_item_with_name():
     [item_id] = db.add_items(OWNER, 1, 1, 1, "Test Nailer")
-    item = db.get_item_detail(item_id)
+    item = db.get_item_detail(OWNER, item_id)
     assert item["name"] == "Test Nailer"
     assert item["type"] == "Nail Gun"
     assert item["status"] == "In Storage"
@@ -43,13 +43,13 @@ def test_add_several_creates_one_record_each():
     # REQ-14: several of one type in a single action, one record per item
     ids = db.add_items(OWNER, 1, 2, 3, "Compressor")
     assert len(ids) == 3
-    names = [db.get_item_detail(i)["name"] for i in ids]
+    names = [db.get_item_detail(OWNER, i)["name"] for i in ids]
     assert names == ["Compressor #1", "Compressor #2", "Compressor #3"]
 
 
 def test_blank_name_is_numbered_from_existing_items():
     ids = db.add_items(OWNER, 1, 3, 2)
-    names = [db.get_item_detail(i)["name"] for i in ids]
+    names = [db.get_item_detail(OWNER, i)["name"] for i in ids]
     assert all(n.startswith("Extension Ladder #") for n in names)
     assert names[0] != names[1]
 

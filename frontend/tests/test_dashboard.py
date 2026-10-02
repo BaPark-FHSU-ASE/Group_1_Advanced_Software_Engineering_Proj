@@ -1,24 +1,27 @@
 """
-Tests for db.get_dashboard_hierarchy().
+Tests for db.get_dashboard_hierarchy(OWNER).
 """
 
 import db
 
+# The seeded account (dale@prairieroofing.example) owns all the seed data.
+OWNER = 1
+
 
 def test_returns_seeded_business():
-    businesses = db.get_dashboard_hierarchy()
+    businesses = db.get_dashboard_hierarchy(OWNER)
     assert len(businesses) == 1
     assert businesses[0]["name"] == "Prairie Roofing & Exteriors"
 
 
 def test_business_has_five_buildings():
-    businesses = db.get_dashboard_hierarchy()
+    businesses = db.get_dashboard_hierarchy(OWNER)
     buildings = businesses[0]["buildings"]
     assert len(buildings) == 5
 
 
 def test_building_hierarchy_includes_rooms_and_storages():
-    businesses = db.get_dashboard_hierarchy()
+    businesses = db.get_dashboard_hierarchy(OWNER)
     buildings = businesses[0]["buildings"]
     # every seeded building has at least one room, and every room at least
     # one storage unit
@@ -29,7 +32,7 @@ def test_building_hierarchy_includes_rooms_and_storages():
 
 
 def test_storage_item_counts_are_nonnegative_integers():
-    businesses = db.get_dashboard_hierarchy()
+    businesses = db.get_dashboard_hierarchy(OWNER)
     for b in businesses[0]["buildings"]:
         for r in b["rooms"]:
             for s in r["storages"]:
