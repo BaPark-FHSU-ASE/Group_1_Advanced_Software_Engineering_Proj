@@ -75,8 +75,56 @@ def dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
 
-    businesses = db.get_dashboard_hierarchy()
+    businesses = db.get_dashboard_hierarchy(session["owner_id"])
     return render_template("dashboard.html", user=session["user"], businesses=businesses)
+
+
+@app.route("/businesses", methods=["POST"])
+def add_business():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Business name is required.", "error")
+    else:
+        db.add_business(session["owner_id"], name)
+        flash(f'Added business "{name}".', "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/businesses/<int:business_id>/rename", methods=["POST"])
+def rename_business(business_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Business name is required.", "error")
+        return redirect(url_for("dashboard"))
+    try:
+        db.rename_business(session["owner_id"], business_id, name)
+    except db.NotFoundOrNotOwned:
+        return redirect(url_for("dashboard"))
+    flash(f'Renamed business to "{name}".', "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/businesses/<int:business_id>/buildings", methods=["POST"])
+def add_building(business_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    street = request.form.get("street_address", "").strip()
+    city = request.form.get("city", "").strip()
+    state = request.form.get("state", "").strip()
+    if not street or not city or not state:
+        flash("Street address, city and state are all required.", "error")
+        return redirect(url_for("dashboard"))
+    try:
+        building_id = db.add_building(session["owner_id"], business_id, street, city, state)
+    except db.NotFoundOrNotOwned:
+        return redirect(url_for("dashboard"))
+    # A new building is empty, so land on it with the Add Room form open.
+    flash(f"Added building at {street}, {city}. Add a room next.", "success")
+    return redirect(url_for("building", building_id=building_id, add="room"))
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +135,7 @@ def dashboard():
 def building(building_id):
     if "user" not in session:
         return redirect(url_for("login"))
-    building_data = db.get_building(building_id)
+    building_data = db.get_building(session["owner_id"], building_id)
     if building_data is None:
         return redirect(url_for("dashboard"))
     return render_template("building.html", user=session["user"], building=building_data)
@@ -136,7 +184,7 @@ def add_storage(room_id):
 def items():
     if "user" not in session:
         return redirect(url_for("login"))
-    item_list = db.get_items()
+    item_list = db.get_items(session["owner_id"])
     return render_template("items.html", user=session["user"], items=item_list)
 
 
@@ -185,10 +233,33 @@ def new_items():
 def item_detail(item_id):
     if "user" not in session:
         return redirect(url_for("login"))
-    item = db.get_item_detail(item_id)
+    owner_id = session["owner_id"]
+    item = db.get_item_detail(owner_id, item_id)
     if item is None:
         return redirect(url_for("items"))
-    return render_template("item_detail.html", user=session["user"], item=item)
+    # An In Transit item needs somewhere to arrive, so offer the owner's
+    # storage units alongside the status buttons.
+    storages = db.get_storage_choices(owner_id) if item["status"] == "In Transit" else []
+    return render_template("item_detail.html", user=session["user"], item=item,
+                           statuses=db.ITEM_STATUSES, storages=storages)
+
+
+@app.route("/items/<int:item_id>/status", methods=["POST"])
+def item_status(item_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+    new_status = request.form.get("status", "")
+    storage_id = request.form.get("storage_id", type=int)
+    try:
+        changed = db.update_item_status(session["owner_id"], item_id, new_status, storage_id)
+    except db.NotFoundOrNotOwned:
+        return redirect(url_for("items"))
+    except ValueError as e:
+        flash(str(e), "error")
+    else:
+        if changed:
+            flash(f"Marked as {new_status}.", "success")
+    return redirect(url_for("item_detail", item_id=item_id))
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +270,7 @@ def item_detail(item_id):
 def compliance():
     if "user" not in session:
         return redirect(url_for("login"))
-    report = db.get_compliance_report()
+    report = db.get_compliance_report(session["owner_id"])
     return render_template("compliance.html", user=session["user"], report=report)
 
 

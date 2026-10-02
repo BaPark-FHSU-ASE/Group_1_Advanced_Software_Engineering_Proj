@@ -21,7 +21,7 @@ OTHER_OWNER = 999999
 
 def test_add_room_shows_up_on_building_page():
     db.add_room(OWNER, 1, "Test room A")
-    rooms = db.get_building(1)["rooms"]
+    rooms = db.get_building(OWNER, 1)["rooms"]
     assert any(r["name"] == "Test room A" for r in rooms)
 
 
@@ -39,7 +39,7 @@ def test_add_storage_to_new_room():
     room_id = db.add_room(OWNER, 1, "Test room B")
     storage_id, building_id = db.add_storage(OWNER, room_id, "Gear cage")
     assert building_id == 1
-    room = next(r for r in db.get_building(1)["rooms"] if r["id"] == room_id)
+    room = next(r for r in db.get_building(OWNER, 1)["rooms"] if r["id"] == room_id)
     storage = next(s for s in room["storages"] if s["id"] == storage_id)
     # Not one of the suggested types - any type is allowed (NF-REQ-1)
     assert storage["type"] == "Gear cage"
