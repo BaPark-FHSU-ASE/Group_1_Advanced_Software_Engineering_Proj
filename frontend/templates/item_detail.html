@@ -12,8 +12,9 @@
                 <h2>{{ item.name }}</h2>
                 <p>{{ item.type }}</p>
             </div>
-            <a href="#" class="btn btn-primary">Edit Item</a>
         </div>
+
+        {% include "_flashes.html" %}
 
         <!-- Item details -->
         <div class="card">

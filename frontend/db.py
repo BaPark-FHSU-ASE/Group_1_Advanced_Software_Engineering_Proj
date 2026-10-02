@@ -351,3 +351,187 @@ def get_compliance_report():
         ]
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Rooms and storage units (REQ-4, REQ-5)
+# ---------------------------------------------------------------------------
+
+class NotFoundOrNotOwned(Exception):
+    """Raised when a write targets a record that doesn't exist or belongs to
+    a different owner. The route treats both the same way, so a user can't
+    use the error to find out which ids exist (NF-REQ-12)."""
+    pass
+
+
+def _building_owned_by(conn, building_id, owner_id):
+    row = conn.execute(
+        "SELECT 1 FROM building bl "
+        "JOIN business bs ON bs.business_id = bl.business_id "
+        "WHERE bl.building_id = ? AND bs.owner_id = ?",
+        (building_id, owner_id),
+    ).fetchone()
+    return row is not None
+
+
+def _room_owned_by(conn, room_id, owner_id):
+    """Returns the room's building_id if the owner owns it, else None."""
+    row = conn.execute(
+        "SELECT r.building_id FROM room r "
+        "JOIN building bl ON bl.building_id = r.building_id "
+        "JOIN business bs ON bs.business_id = bl.business_id "
+        "WHERE r.room_id = ? AND bs.owner_id = ?",
+        (room_id, owner_id),
+    ).fetchone()
+    return row["building_id"] if row else None
+
+
+def add_room(owner_id, building_id, name):
+    """Create a room in one of the owner's buildings. Returns the new room_id."""
+    conn = get_connection()
+    try:
+        if not _building_owned_by(conn, building_id, owner_id):
+            raise NotFoundOrNotOwned()
+        cur = conn.execute(
+            "INSERT INTO room (building_id, location) VALUES (?, ?)",
+            (building_id, name),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def add_storage(owner_id, room_id, storage_type):
+    """Create a storage unit in one of the owner's rooms.
+
+    Returns (storage_id, building_id) so the route knows which building page
+    to send the user back to. storage_type is free text on purpose: the
+    suggested types are only suggestions (NF-REQ-1).
+    """
+    conn = get_connection()
+    try:
+        building_id = _room_owned_by(conn, room_id, owner_id)
+        if building_id is None:
+            raise NotFoundOrNotOwned()
+        cur = conn.execute(
+            "INSERT INTO storage (room_id, storage_type) VALUES (?, ?)",
+            (room_id, storage_type),
+        )
+        conn.commit()
+        return cur.lastrowid, building_id
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Adding items (REQ-6, REQ-14)
+# ---------------------------------------------------------------------------
+
+MAX_ITEMS_PER_ADD = 100
+
+
+def get_item_types():
+    """All item types, for the Add Item form's dropdown."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT item_type_id, name FROM item_type ORDER BY name"
+        ).fetchall()
+        return [{"id": r["item_type_id"], "name": r["name"]} for r in rows]
+    finally:
+        conn.close()
+
+
+def get_storage_choices(owner_id):
+    """Every storage unit the owner has, labelled with its building and room,
+    for the Add Item form's dropdown."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT s.storage_id, s.storage_type, r.location AS room, "
+            "       bl.city, bl.street_address "
+            "FROM storage s "
+            "JOIN room r ON r.room_id = s.room_id "
+            "JOIN building bl ON bl.building_id = r.building_id "
+            "JOIN business bs ON bs.business_id = bl.business_id "
+            "WHERE bs.owner_id = ? "
+            "ORDER BY bl.building_id, r.room_id, s.storage_id",
+            (owner_id,),
+        ).fetchall()
+        return [
+            {
+                "id": r["storage_id"],
+                "building": f'{r["city"]} — {r["street_address"]}',
+                "label": f'{r["room"]} / {r["storage_type"]}',
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+def add_items(owner_id, storage_id, item_type_id, quantity, name=""):
+    """Add `quantity` items of one type to a storage unit in one action (REQ-14).
+
+    Creates one item row per unit, each starting In Storage, plus one
+    movement entry per item recording where it arrived (REQ-12). Everything
+    is written in a single transaction: either all the items and their
+    movement entries are saved, or none are.
+
+    Names: a blank name becomes "<Type> #<n>", numbered on from the items of
+    that type that already exist. A given name with quantity > 1 gets
+    " #1", " #2", ... appended so the items can be told apart.
+
+    Returns the list of new item_ids.
+    """
+    if not (1 <= quantity <= MAX_ITEMS_PER_ADD):
+        raise ValueError(f"Quantity must be between 1 and {MAX_ITEMS_PER_ADD}.")
+
+    conn = get_connection()
+    try:
+        owned = conn.execute(
+            "SELECT 1 FROM storage s "
+            "JOIN room r ON r.room_id = s.room_id "
+            "JOIN building bl ON bl.building_id = r.building_id "
+            "JOIN business bs ON bs.business_id = bl.business_id "
+            "WHERE s.storage_id = ? AND bs.owner_id = ?",
+            (storage_id, owner_id),
+        ).fetchone()
+        item_type = conn.execute(
+            "SELECT name FROM item_type WHERE item_type_id = ?",
+            (item_type_id,),
+        ).fetchone()
+        if owned is None or item_type is None:
+            raise NotFoundOrNotOwned()
+
+        name = (name or "").strip()
+        if name:
+            names = [name] if quantity == 1 else [f"{name} #{i}" for i in range(1, quantity + 1)]
+        else:
+            existing = conn.execute(
+                "SELECT COUNT(*) FROM item WHERE item_type_id = ?", (item_type_id,)
+            ).fetchone()[0]
+            names = [f'{item_type["name"]} #{existing + i}' for i in range(1, quantity + 1)]
+
+        new_ids = []
+        for item_name in names:
+            cur = conn.execute(
+                "INSERT INTO item (item_type_id, storage_id, item_name, item_status) "
+                "VALUES (?, ?, ?, 'In Storage')",
+                (item_type_id, storage_id, item_name),
+            )
+            conn.execute(
+                "INSERT INTO item_movement (item_id, from_storage_id, to_storage_id) "
+                "VALUES (?, NULL, ?)",
+                (cur.lastrowid, storage_id),
+            )
+            new_ids.append(cur.lastrowid)
+
+        conn.commit()
+        return new_ids
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

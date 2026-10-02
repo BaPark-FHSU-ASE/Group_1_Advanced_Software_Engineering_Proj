@@ -25,3 +25,21 @@ os.environ["DB_PATH"] = str(_tmp_db_path)
 
 def pytest_sessionfinish(session, exitstatus):
     shutil.rmtree(_tmp_dir, ignore_errors=True)
+
+
+import pytest
+
+
+@pytest.fixture
+def fresh_db(monkeypatch, tmp_path):
+    """A private copy of the database for one test.
+
+    Tests that write (add rooms, items, ...) use this so they can't change
+    the pinned seed-data counts other tests check, whatever order they run in.
+    """
+    import db
+
+    path = tmp_path / "stockdaddy_fresh.db"
+    shutil.copyfile(_REAL_DB, path)
+    monkeypatch.setattr(db, "DB_PATH", str(path))
+    return path

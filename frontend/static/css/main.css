@@ -336,7 +336,8 @@ a:hover { text-decoration: underline; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 9px 12px;
     border: 1px solid var(--border);
@@ -347,7 +348,8 @@ a:hover { text-decoration: underline; }
     transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
@@ -357,5 +359,129 @@ a:hover { text-decoration: underline; }
 
 .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
 .alert-error { background: var(--shortage-bg); border: 1px solid #fecaca; color: var(--shortage-text); }
+.alert-success { background: var(--success-bg); border: 1px solid #a7f3d0; color: var(--success-text); }
+
+.muted-note { color: var(--muted); font-size: 12px; }
+
+/* ── Inline "add" forms (no JavaScript: <details> opens and closes itself) ── */
+
+.inline-form { position: relative; }
+/* Cards clip their corners; let an open form spill out of its card. */
+.card:has(.inline-form[open]) { overflow: visible; }
+.inline-form > summary { list-style: none; }
+.inline-form > summary::-webkit-details-marker { display: none; }
+.inline-form[open] > summary { background: var(--accent-dark); }
+
+.inline-form-body {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    font-weight: 400;
+}
 
 .empty-state { text-align: center; color: var(--muted); padding: 32px; }
+
+.form-card { max-width: 480px; padding: 20px; }
+.form-hint { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.form-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* ── Phone layout (UI-REQ-6, NF-REQ-3) ───────────────────────── */
+
+/* Desktop: none of the phone-only pieces show */
+.nav-toggle,
+.mobile-topbar,
+.nav-overlay { display: none; }
+
+@media (max-width: 768px) {
+    .app-layout { flex-direction: column; }
+
+    /* Top bar with the menu button */
+    .mobile-topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        height: 56px;
+        padding: 0 12px;
+        background: var(--sidebar-bg);
+        color: #fff;
+    }
+
+    .menu-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+    .menu-button:active { background: var(--sidebar-hover); }
+    .mobile-logo { font-weight: 700; font-size: 17px; }
+
+    /* Sidebar becomes a drawer that slides in from the left */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 50;
+        width: min(280px, 85vw);
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+    }
+    .nav-toggle:checked ~ .sidebar { transform: translateX(0); }
+
+    /* Dark overlay behind the open drawer; tapping it closes the menu */
+    .nav-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: rgba(15, 23, 42, 0.45);
+    }
+    .nav-toggle:checked ~ .nav-overlay { display: block; }
+
+    /* Bigger tap targets in the drawer */
+    .nav-item { padding: 13px 18px; font-size: 15px; }
+    .nav-item.logout { padding: 10px 0; font-size: 14px; }
+
+    /* Content */
+    .main-content { padding: 16px; }
+    .page-header { flex-wrap: wrap; }
+    .card-header { flex-wrap: wrap; gap: 8px; }
+    .stats-row { flex-direction: column; gap: 10px; }
+    .detail-label { width: 110px; }
+
+    /* Wide tables scroll sideways inside their card instead of the page */
+    .card { overflow-x: auto; }
+
+    /* Buttons big enough to hit with a thumb */
+    .btn { min-height: 44px; padding: 11px 16px; font-size: 14px; }
+    .btn-small { min-height: 36px; padding: 8px 12px; }
+    .btn-tiny { min-height: 32px; padding: 6px 10px; }
+
+    /* Inline "add" forms open full width in the page instead of floating */
+    .inline-form[open] { flex-basis: 100%; }
+    .inline-form-body {
+        position: static;
+        width: 100%;
+        margin-top: 8px;
+        box-shadow: none;
+    }
+
+    /* 16px inputs stop iPhones zooming in when a field is tapped */
+    .form-group input,
+    .form-group select { font-size: 16px; padding: 11px 12px; }
+
+    .form-card { max-width: none; }
+}

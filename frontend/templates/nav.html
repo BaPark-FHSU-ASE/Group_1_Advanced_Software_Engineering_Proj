@@ -1,3 +1,16 @@
+{#
+  Phone layout (UI-REQ-6, NF-REQ-3). Below 768px wide the sidebar hides
+  off-screen and a top bar with a menu button takes its place. The button is
+  a <label> for a hidden checkbox, so opening and closing the menu needs no
+  JavaScript. On desktop the checkbox, top bar and overlay are all hidden.
+#}
+<input type="checkbox" id="nav-toggle" class="nav-toggle" aria-hidden="true" />
+
+<header class="mobile-topbar">
+    <label for="nav-toggle" class="menu-button" aria-label="Open menu">☰</label>
+    <span class="mobile-logo">Stock Daddy</span>
+</header>
+
 <div class="sidebar">
     <div class="sidebar-header">
         <span class="sidebar-logo">Stock Daddy</span>
@@ -21,3 +34,5 @@
         <a href="{{ url_for('logout') }}" class="nav-item logout">Log Out</a>
     </div>
 </div>
+
+<label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>

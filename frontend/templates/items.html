@@ -11,8 +11,10 @@
                 <h2>Items</h2>
                 <p>All individual inventory items across every site</p>
             </div>
-            <button class="btn btn-primary">+ Add Item</button>
+            <a href="{{ url_for('new_items') }}" class="btn btn-primary">+ Add Item</a>
         </div>
+
+        {% include "_flashes.html" %}
 
         <div class="card">
             <table class="table">
@@ -46,7 +48,6 @@
                         <td>{{ item.storage }}</td>
                         <td>
                             <a href="{{ url_for('item_detail', item_id=item.id) }}" class="btn btn-small btn-secondary">View</a>
-                            <a href="#" class="btn btn-small">Edit</a>
                         </td>
                     </tr>
                     {% else %}
