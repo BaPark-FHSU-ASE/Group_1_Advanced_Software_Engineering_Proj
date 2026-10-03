@@ -528,3 +528,7 @@ a:hover { text-decoration: underline; }
     .status-btn { width: 100%; min-height: 52px; font-size: 16px; }
     .status-form .form-group { max-width: none; }
 }
+
+/* ── Redistribute: saved-plan note ──────────────────────────── */
+
+.plan-timestamp { font-size: 13px; color: var(--muted); margin-bottom: 16px; }

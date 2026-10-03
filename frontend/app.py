@@ -1,6 +1,10 @@
+import json
+from datetime import datetime
+
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 
 import db
+import redistribution
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"  # Change before production
@@ -278,17 +282,42 @@ def compliance():
 # Redistribute — Layer 3: Decision Support
 # ---------------------------------------------------------------------------
 
-@app.route("/redistribute")
+# The last plan is kept in the session (a signed browser cookie) so it stays
+# on the page until the owner runs it again or logs out. Browsers drop
+# cookies over ~4 KB - and with them the login - so a plan too big to fit
+# is shown once and not saved.
+_MAX_SAVED_PLAN_BYTES = 3000
+
+
+@app.route("/redistribute", methods=["GET", "POST"])
 def redistribute():
+    """GET shows the last plan run this session (or the empty state); POST
+    (the Run Optimizer button) runs Scott's engine on the owner's current
+    inventory, saves the result, and redirects back to GET."""
     if "user" not in session:
         return redirect(url_for("login"))
-    # TODO: Call Scott's optimization engine
-    plan = {
-        "generated": False,
-        "trips": [],
-        "total_cost": 0.0,
-        "greedy_cost": 0.0,
-    }
+
+    if request.method == "POST":
+        try:
+            plan = redistribution.generate_plan(session["owner_id"])
+        except redistribution.NoFeasiblePlan:
+            session.pop("last_plan", None)
+            flash(
+                "No plan could cover every shortage: some item can't be moved "
+                "from another site and has no replacement cost set.",
+                "error",
+            )
+            return redirect(url_for("redistribute"))
+
+        plan["generated_at"] = datetime.now().strftime("%I:%M %p").lstrip("0")
+        if len(json.dumps(plan)) <= _MAX_SAVED_PLAN_BYTES:
+            session["last_plan"] = plan
+            # Redirect so a browser refresh doesn't re-submit the form.
+            return redirect(url_for("redistribute"))
+        session.pop("last_plan", None)
+        return render_template("redistribute.html", user=session["user"], plan=plan)
+
+    plan = session.get("last_plan") or {"generated": False}
     return render_template("redistribute.html", user=session["user"], plan=plan)
 
 

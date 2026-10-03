@@ -11,29 +11,62 @@
                 <h2>Redistribute</h2>
                 <p>Optimal transfer plan to bring all sites back into compliance</p>
             </div>
-            <button class="btn btn-primary">▶ Run Optimizer</button>
+            <form method="POST" action="{{ url_for('redistribute') }}">
+                <button type="submit" class="btn btn-primary">
+                    ▶ {% if plan.generated %}Run Again{% else %}Run Optimizer{% endif %}
+                </button>
+            </form>
         </div>
 
-        {% if plan.generated %}
-        <!-- Cost summary -->
+        {% include "_flashes.html" %}
+
+        {% if plan.generated and plan.generated_at %}
+        <p class="plan-timestamp">
+            Plan generated at {{ plan.generated_at }}. If inventory has changed since then, click <strong>Run Again</strong>.
+        </p>
+        {% endif %}
+
+        {% if plan.generated and plan.no_shortages %}
+        <div class="card">
+            <div class="empty-state">
+                <p>✅ Every site is at or above its target. Nothing needs to move.</p>
+            </div>
+        </div>
+
+        {% elif plan.generated %}
+        {% if not plan.optimal %}
+        <div class="alert alert-error">
+            The optimizer ran out of time before proving this plan is the cheapest.
+            It is within {{ "%.1f"|format(plan.gap * 100) }}% of the best possible cost.
+        </div>
+        {% endif %}
+
+        <!-- Cost summary (REQ-19, REQ-20) -->
         <div class="stats-row">
             <div class="stat-card">
-                <div class="stat-label">Optimal Cost</div>
+                <div class="stat-label">{% if plan.optimal %}Optimal Cost{% else %}Best Cost Found{% endif %}</div>
                 <div class="stat-value">${{ "%.2f"|format(plan.total_cost) }}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Greedy Baseline</div>
-                <div class="stat-value">${{ "%.2f"|format(plan.greedy_cost) }}</div>
+                <div class="stat-label">Nearest-Site Baseline</div>
+                <div class="stat-value">
+                    {% if plan.greedy_cost is not none %}${{ "%.2f"|format(plan.greedy_cost) }}{% else %}—{% endif %}
+                </div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Savings</div>
-                <div class="stat-value savings">${{ "%.2f"|format(plan.greedy_cost - plan.total_cost) }}</div>
+                <div class="stat-value savings">
+                    {% if plan.greedy_cost is not none %}${{ "%.2f"|format(plan.greedy_cost - plan.total_cost) }}{% else %}—{% endif %}
+                </div>
             </div>
         </div>
 
         <!-- Trip list -->
         <div class="card">
-            <div class="card-header"><span>📋 Recommended Trips</span></div>
+            <div class="card-header">
+                <span>📋 Recommended Trips</span>
+                <span>${{ "%.2f"|format(plan.transfer_cost) }}</span>
+            </div>
             {% for trip in plan.trips %}
             <div class="trip-row">
                 <div class="trip-route">
@@ -42,7 +75,8 @@
                     <span class="trip-to">{{ trip.to }}</span>
                 </div>
                 <div class="trip-contents">
-                    {% for item in trip.items %}
+                    {# trip["items"], not trip.items: on a dict, .items is the built-in method #}
+                    {% for item in trip["items"] %}
                     <span class="storage-tag">{{ item.qty }}× {{ item.type }}</span>
                     {% endfor %}
                 </div>
@@ -52,8 +86,31 @@
                     = <strong>${{ "%.2f"|format(trip.dispatch_cost + trip.handling_cost) }}</strong>
                 </div>
             </div>
+            {% else %}
+            <div class="empty-state"><p>No transfers needed — buying new is cheaper for every shortage.</p></div>
             {% endfor %}
         </div>
+
+        <!-- Purchases instead of transfers (REQ-24) -->
+        {% if plan.acquisitions %}
+        <div class="card">
+            <div class="card-header">
+                <span>🛒 Buy New Instead</span>
+                <span>${{ "%.2f"|format(plan.acquisition_cost) }}</span>
+            </div>
+            {% for a in plan.acquisitions %}
+            <div class="trip-row">
+                <div class="trip-route"><span class="trip-to">{{ a.building }}</span></div>
+                <div class="trip-contents">
+                    <span class="storage-tag">{{ a.qty }}× {{ a.type }}</span>
+                </div>
+                <div class="trip-cost">
+                    {{ a.qty }} × ${{ "%.2f"|format(a.unit_cost) }} = <strong>${{ "%.2f"|format(a.cost) }}</strong>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         {% else %}
         <div class="card">

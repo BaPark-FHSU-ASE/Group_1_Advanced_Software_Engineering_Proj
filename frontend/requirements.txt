@@ -1,2 +1,6 @@
 flask>=3.0.0
 pytest>=8.0.0
+# Needed by the redistribution optimizer (Optimizer/branch_and_bound.py),
+# which the /redistribute page now calls. Versions match Optimizer/requirements.txt.
+numpy>=2.0
+scipy>=1.14

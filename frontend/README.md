@@ -107,7 +107,7 @@ To stop the app, press `Ctrl + C` in the terminal.
 | `/items` | Items | All items with status across every site |
 | `/items/<id>` | Item detail | Status, location, and full movement history |
 | `/compliance` | Surplus & Shortage | Compare on-hand vs targets across all buildings |
-| `/redistribute` | Redistribute | Optimization plan output (Scott's engine plugs in here) |
+| `/redistribute` | Redistribute | Runs Scott's optimizer on live inventory: optimal trips, buy-new items, and savings vs. the nearest-site baseline |
 
 ---
 
@@ -117,8 +117,9 @@ To stop the app, press `Ctrl + C` in the terminal.
 frontend/
 ├── app.py                  — Flask routes, all querying the real DB
 ├── db.py                   — SQLite connection layer + all queries
+├── redistribution.py       — DB → Optimizer → page bridge for /redistribute
 ├── stockdaddy.db           — the actual database (SQLite, committed, pre-seeded)
-├── requirements.txt        — Python dependencies (just Flask)
+├── requirements.txt        — Python dependencies (Flask, plus numpy/scipy for the optimizer)
 ├── .gitignore
 ├── README.md
 ├── templates/
@@ -151,4 +152,4 @@ automatically.
 
 **Ivan (Database):** Schema is SQLite now (`Schema_versions/schema_v5.sql`), not MySQL. Registration/login use hashed passwords (werkzeug), never plaintext. `db.py` has the full query layer.
 
-**Scott (Optimizer):** The `/redistribute` route passes a `plan` dict to `redistribute.html`. Set `plan["generated"] = True` and populate `plan["trips"]`, `plan["total_cost"]`, and `plan["greedy_cost"]` from your engine output. Note: `building_route.handling_cost_per_unit` is stored as SQLite's floating-point REAL, not exact decimal — compare costs with a small tolerance, not exact equality.
+**Scott (Optimizer):** `/redistribute` is wired to your engine. Clicking **Run Optimizer** POSTs to the route, which calls `redistribution.generate_plan(owner_id)`: `db.get_optimizer_inputs()` reads buildings, item types, `building_route`, and supply/demand from `v_building_item_type_position`; `build_instance()` turns that into an `Instance` (buildings and types keyed by database id as strings); then `branch_and_bound()` (10 s deadline, gap shown if it isn't proven optimal) and `nearest_source_first()` (baseline) run, and `to_view()` maps the `Plan` back to display names. The optimizer package itself is unchanged. Seed data is your instance B, so `tests/test_redistribute.py` checks the live page reproduces $575.44 / $1072.19. Costs still come from SQLite REAL columns, so compare with a tolerance.

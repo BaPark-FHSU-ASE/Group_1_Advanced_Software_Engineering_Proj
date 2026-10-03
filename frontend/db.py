@@ -764,3 +764,102 @@ def add_building(owner_id, business_id, street_address, city, state):
         return cur.lastrowid
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Optimizer inputs (REQ-17, REQ-18) — read-only feed for redistribution.py
+# ---------------------------------------------------------------------------
+
+def get_optimizer_inputs(owner_id):
+    """Everything the redistribution optimizer needs for one owner, as plain
+    dicts so this layer stays free of any Optimizer imports.
+
+    Returns a dict with:
+      buildings   [{id, label}]   the owner's buildings, by building_id
+      item_types  [{id, name, replacement_cost}]  replacement_cost None = c_k inf
+      routes      [{from_id, to_id, distance_miles, fixed_dispatch_cost,
+                    cost_per_unit_mile}]   only routes between the owner's buildings
+      positions   [{building_id, item_type_id, supply, demand}]  rows with
+                  shippable surplus (s_ik) or shortage (d_jk) > 0, read
+                  straight from v_building_item_type_position
+
+    A building's label is its city, plus the street address when the owner
+    has more than one building in that city (e.g. the two Salina sites).
+    Only owner_id's own data is read (NF-REQ-12).
+    """
+    conn = get_connection()
+    try:
+        buildings = conn.execute(
+            "SELECT b.building_id, b.city, b.street_address "
+            "FROM building b JOIN business bs ON bs.business_id = b.business_id "
+            "WHERE bs.owner_id = ? ORDER BY b.building_id",
+            (owner_id,),
+        ).fetchall()
+        owned = {b["building_id"] for b in buildings}
+
+        city_counts = {}
+        for b in buildings:
+            city_counts[b["city"]] = city_counts.get(b["city"], 0) + 1
+
+        def _label(b):
+            city = b["city"] or f"Building {b['building_id']}"
+            if city_counts.get(b["city"], 0) > 1 and b["street_address"]:
+                return f"{city} ({b['street_address']})"
+            return city
+
+        item_types = conn.execute(
+            "SELECT item_type_id, name, replacement_cost FROM item_type ORDER BY item_type_id"
+        ).fetchall()
+
+        routes = conn.execute(
+            "SELECT from_building_id, to_building_id, distance_miles, "
+            "       fixed_dispatch_cost, cost_per_unit_mile "
+            "FROM building_route ORDER BY building_route_id"
+        ).fetchall()
+
+        positions = conn.execute(
+            "SELECT p.building_id, p.item_type_id, "
+            "       p.shippable_surplus_qty AS supply, p.shortage_qty AS demand "
+            "FROM v_building_item_type_position p "
+            "JOIN building b ON b.building_id = p.building_id "
+            "JOIN business bs ON bs.business_id = b.business_id "
+            "WHERE bs.owner_id = ? "
+            "  AND (p.shippable_surplus_qty > 0 OR p.shortage_qty > 0) "
+            "ORDER BY p.building_id, p.item_type_id",
+            (owner_id,),
+        ).fetchall()
+
+        return {
+            "buildings": [{"id": b["building_id"], "label": _label(b)} for b in buildings],
+            "item_types": [
+                {
+                    "id": t["item_type_id"],
+                    "name": t["name"],
+                    "replacement_cost": None if t["replacement_cost"] is None
+                                        else float(t["replacement_cost"]),
+                }
+                for t in item_types
+            ],
+            "routes": [
+                {
+                    "from_id": r["from_building_id"],
+                    "to_id": r["to_building_id"],
+                    "distance_miles": float(r["distance_miles"]),
+                    "fixed_dispatch_cost": float(r["fixed_dispatch_cost"]),
+                    "cost_per_unit_mile": float(r["cost_per_unit_mile"]),
+                }
+                for r in routes
+                if r["from_building_id"] in owned and r["to_building_id"] in owned
+            ],
+            "positions": [
+                {
+                    "building_id": p["building_id"],
+                    "item_type_id": p["item_type_id"],
+                    "supply": int(p["supply"]),
+                    "demand": int(p["demand"]),
+                }
+                for p in positions
+            ],
+        }
+    finally:
+        conn.close()
