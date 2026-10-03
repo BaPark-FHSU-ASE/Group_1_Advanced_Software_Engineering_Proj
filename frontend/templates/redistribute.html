@@ -20,6 +20,12 @@
 
         {% include "_flashes.html" %}
 
+        {% if plan.generated and plan.generated_at %}
+        <p class="plan-timestamp">
+            Plan generated at {{ plan.generated_at }}. If inventory has changed since then, click <strong>Run Again</strong>.
+        </p>
+        {% endif %}
+
         {% if plan.generated and plan.no_shortages %}
         <div class="card">
             <div class="empty-state">

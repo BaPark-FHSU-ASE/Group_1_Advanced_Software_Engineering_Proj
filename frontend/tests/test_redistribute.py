@@ -114,8 +114,41 @@ def test_get_shows_empty_state_without_running():
 
 
 def test_post_runs_optimizer_and_shows_plan():
-    resp = _client().post("/redistribute")
+    resp = _client().post("/redistribute", follow_redirects=True)
     assert resp.status_code == 200
     assert b"$575.44" in resp.data
     assert b"Recommended Trips" in resp.data
     assert b"Buy New Instead" in resp.data
+    assert b"Plan generated at" in resp.data
+
+
+def test_post_redirects_so_refresh_does_not_resubmit():
+    resp = _client().post("/redistribute")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/redistribute")
+
+
+def test_plan_stays_after_leaving_and_coming_back():
+    client = _client()
+    client.post("/redistribute")
+    client.get("/dashboard")
+    resp = client.get("/redistribute")
+    assert b"$575.44" in resp.data
+    assert b"No plan generated yet" not in resp.data
+
+
+def test_logout_clears_saved_plan():
+    client = _client()
+    client.post("/redistribute")
+    client.get("/logout")
+    with client.session_transaction() as sess:
+        sess["user"] = "Test"
+        sess["owner_id"] = OWNER
+    resp = client.get("/redistribute")
+    assert b"No plan generated yet" in resp.data
+
+
+def test_saved_plan_is_per_session():
+    _client().post("/redistribute")
+    resp = _client().get("/redistribute")  # a different browser/session
+    assert b"No plan generated yet" in resp.data
