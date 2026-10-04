@@ -60,8 +60,11 @@ You'll know it worked when you see `(venv)` at the start of your terminal line.
 ### Step 5 — Install dependencies
 
 ```
-pip install -r requirements.txt
+pip install -r requirements.txt -r ../stock_daddy_api/requirements.txt
 ```
+
+The second file is for the Stock Daddy API, which the frontend starts for you
+(see Step 6).
 
 That's it for setup — there's no separate database step. `stockdaddy.db`
 (SQLite) is already in this folder, committed to the repo with the seed
@@ -80,6 +83,9 @@ py app.py
 ```
 python3 app.py
 ```
+
+This starts the Stock Daddy API too (on port 5001), so there's nothing else
+to run. It stops when you stop the frontend.
 
 ---
 
@@ -103,7 +109,7 @@ To stop the app, press `Ctrl + C` in the terminal.
 | URL | Page | Purpose |
 |---|---|---|
 | `/dashboard` | Dashboard | Full hierarchy: Business → Building → Room → Storage |
-| `/building/<id>` | Building detail | Rooms, storage units, and stock level snapshot |
+| `/building/<id>` | Building detail | Rooms, storage units, stock level snapshot, and setting stock targets (via the API) |
 | `/items` | Items | All items with status across every site |
 | `/items/<id>` | Item detail | Status, location, and full movement history |
 | `/compliance` | Surplus & Shortage | Compare on-hand vs targets across all buildings |
@@ -118,6 +124,8 @@ frontend/
 ├── app.py                  — Flask routes, all querying the real DB
 ├── db.py                   — SQLite connection layer + all queries
 ├── redistribution.py       — DB → Optimizer → page bridge for /redistribute
+├── api_client.py           — calls to the Stock Daddy API (stock targets so far)
+├── api_launcher.py         — starts the API when the frontend starts
 ├── stockdaddy.db           — the actual database (SQLite, committed, pre-seeded)
 ├── requirements.txt        — Python dependencies (Flask, plus numpy/scipy for the optimizer)
 ├── .gitignore
