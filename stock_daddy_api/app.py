@@ -1,4 +1,5 @@
 from flask import Flask
+from app.config import Config
 from app.controllers.owner_controller import owner_bp
 from app.controllers.business_controller import business_bp
 from app.controllers.building_controller import building_bp
@@ -18,4 +19,4 @@ app.register_blueprint(item_bp)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=Config.FLASK_DEBUG, port=Config.API_PORT)

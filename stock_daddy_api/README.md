@@ -12,7 +12,7 @@ FLASK_DEBUG=True
 5. Start flask server
 python app.py
 test with the below. May be different port. if you have 
-http://127.0.0.1:5000/businesses
+http://127.0.0.1:5001/businesses
 
 
 Running pytest. 
