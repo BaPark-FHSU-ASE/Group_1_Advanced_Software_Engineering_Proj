@@ -414,6 +414,9 @@ a:hover { text-decoration: underline; }
     font-weight: 400;
 }
 
+/* Several buttons on the right of a card header, e.g. Set Target + Full Report */
+.card-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
 .empty-state { text-align: center; color: var(--muted); padding: 32px; }
 
 .form-card { max-width: 480px; padding: 20px; }
