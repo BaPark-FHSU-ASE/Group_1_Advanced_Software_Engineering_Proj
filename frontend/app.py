@@ -4,6 +4,7 @@ from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 
 import api_client
+import api_launcher
 import db
 import redistribution
 
@@ -365,4 +366,6 @@ def redistribute():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Starts the Stock Daddy API too, so this one command runs both servers.
+    api_launcher.start_api()
     app.run(debug=True)
