@@ -3,6 +3,8 @@ from datetime import datetime
 
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 
+import api_client
+import api_launcher
 import db
 import redistribution
 
@@ -142,7 +144,47 @@ def building(building_id):
     building_data = db.get_building(session["owner_id"], building_id)
     if building_data is None:
         return redirect(url_for("dashboard"))
-    return render_template("building.html", user=session["user"], building=building_data)
+    return render_template(
+        "building.html",
+        user=session["user"],
+        building=building_data,
+        item_types=db.get_item_types(),
+    )
+
+
+@app.route("/building/<int:building_id>/targets", methods=["POST"])
+def set_target(building_id):
+    """Set or change one stock target for this building (REQ-15).
+
+    Saves through the Stock Daddy API (stock_daddy_api/), not db.py.
+    Saving a target that already exists updates it instead of adding a
+    second one.
+    """
+    if "user" not in session:
+        return redirect(url_for("login"))
+    if db.get_building(session["owner_id"], building_id) is None:
+        return redirect(url_for("dashboard"))
+
+    item_type_id = request.form.get("item_type_id", type=int)
+    target_qty = request.form.get("target_qty", type=int)
+    names = {t["id"]: t["name"] for t in db.get_item_types()}
+    if item_type_id not in names or target_qty is None or target_qty < 0:
+        flash("Pick an item type and enter a target of 0 or more.", "error")
+        return redirect(url_for("building", building_id=building_id))
+
+    try:
+        _, created = api_client.set_target(
+            session["owner_id"], building_id, item_type_id, target_qty
+        )
+    except api_client.ApiUnavailable:
+        flash("Couldn't reach the Stock Daddy API, so the target wasn't saved. "
+              "Restart the app and try again.", "error")
+    except api_client.ApiError as e:
+        flash(f"The target wasn't saved: {e.message}", "error")
+    else:
+        verb = "Set" if created else "Updated"
+        flash(f"{verb} the {names[item_type_id]} target to {target_qty}.", "success")
+    return redirect(url_for("building", building_id=building_id))
 
 
 @app.route("/building/<int:building_id>/rooms", methods=["POST"])
@@ -324,4 +366,6 @@ def redistribute():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Starts the Stock Daddy API too, so this one command runs both servers.
+    api_launcher.start_api()
     app.run(debug=True)

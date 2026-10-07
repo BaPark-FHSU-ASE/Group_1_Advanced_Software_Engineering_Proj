@@ -31,7 +31,30 @@
         <div class="card">
             <div class="card-header">
                 <span>⚠️ Stock Levels</span>
-                <a href="{{ url_for('compliance') }}" class="btn btn-small btn-secondary">Full Report</a>
+                <div class="card-actions">
+                    {# REQ-15: saving a target that already exists updates it #}
+                    <details class="inline-form">
+                        <summary class="btn btn-small">Set Target</summary>
+                        <form method="POST" action="{{ url_for('set_target', building_id=building.id) }}" class="inline-form-body">
+                            <div class="form-group">
+                                <label for="target-item-type">Item type</label>
+                                <select id="target-item-type" name="item_type_id" required>
+                                    <option value="" disabled selected>Choose…</option>
+                                    {% for t in item_types %}
+                                    <option value="{{ t.id }}">{{ t.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="target-qty">Target quantity</label>
+                                <input type="number" id="target-qty" name="target_qty" min="0" step="1" inputmode="numeric" required />
+                                <span class="form-hint">How many this building should keep on hand.</span>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Save Target</button>
+                        </form>
+                    </details>
+                    <a href="{{ url_for('compliance') }}" class="btn btn-small btn-secondary">Full Report</a>
+                </div>
             </div>
             <table class="table">
                 <thead>
