@@ -438,6 +438,45 @@ def get_compliance_report(owner_id):
         conn.close()
 
 
+def get_expired_items(owner_id):
+    """Items past their item type's configured service life (REQ-23).
+
+    An item is flagged when its age (today - date_added) exceeds
+    item_type.service_life_days. Item types with service_life_days = NULL
+    have no limit configured, so their items are never flagged -
+    the same "NULL means not configured" convention replacement_cost uses.
+    """
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT i.item_id, i.item_name, it.name AS item_type, i.item_status, "
+            "       i.date_added, it.service_life_days, "
+            "       CAST(julianday('now') - julianday(i.date_added) AS INTEGER) AS age_days "
+            "FROM item i "
+            "JOIN item_type it ON it.item_type_id = i.item_type_id "
+            + _ITEM_OWNER_JOINS +
+            "WHERE obs.owner_id = ? "
+            "  AND it.service_life_days IS NOT NULL "
+            "  AND julianday('now') - julianday(i.date_added) > it.service_life_days "
+            "ORDER BY age_days DESC",
+            (owner_id,),
+        ).fetchall()
+        return [
+            {
+                "id": row["item_id"],
+                "name": row["item_name"],
+                "type": row["item_type"],
+                "status": row["item_status"],
+                "age_days": row["age_days"],
+                "service_life_days": row["service_life_days"],
+                "days_over": row["age_days"] - row["service_life_days"],
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Rooms and storage units (REQ-4, REQ-5)
 # ---------------------------------------------------------------------------
