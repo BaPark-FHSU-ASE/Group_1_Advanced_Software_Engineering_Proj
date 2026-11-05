@@ -22,12 +22,12 @@ make that plan optimal over all subsets of `opened`. The flow solve minimises
 handling plus acquisition only - it cannot see fixed dispatch charges - so it
 will happily choose a cheap-handling route carrying a large fixed charge over
 a slightly dearer route that is nearly free to open. Searching over subsets
-is therefore still required, which is what enumerate_bruteforce and (later)
+is therefore still required, which is what enumerate_bruteforce and
 branch_and_bound do.
 
-When branch_and_bound needs a "charge every permitted route" reading for node
-bounding, that belongs here as a keyword flag on this function rather than as
-a second, near-duplicate implementation.
+branch_and_bound doesn't use this function to bound its nodes. It bounds
+them with its own LP relaxation (_lp_bound) and only calls solve_residual
+once a node's route decisions are settled, to get the actual plan.
 """
 
 from __future__ import annotations
