@@ -137,8 +137,8 @@ Quick check with the API running: http://127.0.0.1:5001/businesses
 install; `sqlite3` ships with Python, and the committed `.db` file means a
 fresh clone works immediately.
 
-**Changing the schema or seed data:** edit `Schema_versions/schema_v6.sql` or
-`seed_data_v6.sql`, then rebuild and commit the database alongside your change:
+**Changing the schema or seed data:** edit `Schema_versions/schema_v7.sql` or
+`seed_data_v7.sql`, then rebuild and commit the database alongside your change:
 
 ```
 python Schema_versions/build_db.py
@@ -158,11 +158,16 @@ sqlite> SELECT * FROM v_building_item_type_position LIMIT 5;
 
 **Schema files** in `Schema_versions/`:
 
-- `schema_v6.sql` / `seed_data_v6.sql`: current. v6 adds
-  `item_movement.from_status` / `to_status` so a status change with no
-  location change is recorded (REQ-11), and `item_type.service_life_days`
-  for item aging (REQ-23). The seed data is a five-site roofing company.
+- `schema_v7.sql` / `seed_data_v7.sql`: current. v7 adds `retired` timestamp
+  columns on business/building/room/storage/item, a `business_member` table
+  (owner/employee roles, backfilled from the existing owners), and a
+  `plan_run` table for saved optimizer runs. The two compliance views now
+  exclude retired items and retired buildings. The seed data adds one
+  seeded employee login alongside the existing owner.
 - `build_db.py`: rebuilds `frontend/stockdaddy.db` from the two files above.
+- `schema_v6.sql` / `seed_data_v6.sql`: superseded; added
+  `item_movement.from_status` / `to_status` (REQ-11) and
+  `item_type.service_life_days` (REQ-23).
 - `schema_v5.sql` / `seed_data_v5.sql`: superseded; added login columns and
   ported the schema from MySQL to SQLite.
 - v4 and earlier: MySQL dialect, kept for history. Each file's header
