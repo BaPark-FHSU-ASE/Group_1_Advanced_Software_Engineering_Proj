@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
+from app.Validation_Helper import parse_body
 from app.repositories import owner_repository
 
 owner_bp = Blueprint("owner_bp", __name__)
@@ -12,7 +13,9 @@ def get_owners():
 
 @owner_bp.route("/owners", methods=["POST"])
 def create_owner():
-    data = request.get_json()
+    data = parse_body(
+        required={"first_name": str, "last_name": str, "email": str, "password_hash": str},
+    )
     owner = owner_repository.create(
         first_name=data["first_name"],
         last_name=data["last_name"],
@@ -32,7 +35,9 @@ def get_owner(owner_id):
 
 @owner_bp.route("/owners/<int:owner_id>", methods=["PUT"])
 def update_owner(owner_id):
-    data = request.get_json()
+    data = parse_body(
+        required={"first_name": str, "last_name": str, "email": str},
+    )
     owner = owner_repository.update(
         owner_id=owner_id,
         first_name=data["first_name"],

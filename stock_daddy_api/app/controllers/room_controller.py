@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
+from app.Validation_Helper import parse_body
 from app.repositories import room_repository
 
 room_bp = Blueprint("room_bp", __name__)
@@ -12,7 +13,9 @@ def get_rooms():
 
 @room_bp.route("/rooms", methods=["POST"])
 def create_room():
-    data = request.get_json()
+    data = parse_body(
+        required={"building_id": int, "location": str},
+    )
     room = room_repository.create(
         building_id=data["building_id"],
         location=data["location"],
@@ -30,7 +33,9 @@ def get_room(room_id):
 
 @room_bp.route("/rooms/<int:room_id>", methods=["PUT"])
 def update_room(room_id):
-    data = request.get_json()
+    data = parse_body(
+        required={"building_id": int, "location": str},
+    )
     room = room_repository.update(
         room_id=room_id,
         building_id=data["building_id"],

@@ -41,6 +41,8 @@ TEST_FILES = [
      "tests/test_item_repository_delete.py",
      "tests/test_target_quantity_repository.py",
      "tests/test_target_quantity_routes.py",
+     "tests/test_validation.py",
+     "tests/test_api_error_handling.py",
 ]
 
 if __name__ == "__main__":

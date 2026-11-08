@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
+from app.Validation_Helper import parse_body
 from app.repositories import business_repository
 
 business_bp = Blueprint("business_bp", __name__)
@@ -12,7 +13,9 @@ def get_businesses():
 
 @business_bp.route("/businesses", methods=["POST"])
 def create_business():
-    data = request.get_json()
+    data = parse_body(
+        required={"name": str, "owner_id": int},
+    )
     business = business_repository.create(
         name=data["name"],
         owner_id=data["owner_id"],
@@ -30,7 +33,9 @@ def get_business(business_id):
 
 @business_bp.route("/businesses/<int:business_id>", methods=["PUT"])
 def update_business(business_id):
-    data = request.get_json()
+    data = parse_body(
+        required={"name": str, "owner_id": int},
+    )
     business = business_repository.update(
         business_id=business_id,
         name=data["name"],

@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
+from app.Validation_Helper import parse_body
 from app.repositories import item_type_repository
 
 item_type_bp = Blueprint("item_type_bp", __name__)
@@ -12,7 +13,10 @@ def get_item_types():
 
 @item_type_bp.route("/item_types", methods=["POST"])
 def create_item_type():
-    data = request.get_json()
+    data = parse_body(
+        required={"name": str},
+        optional={"description": str, "replacement_cost": float},
+    )
     item_type = item_type_repository.create(
         name=data["name"],
         description=data.get("description"),
@@ -31,7 +35,10 @@ def get_item_type(item_type_id):
 
 @item_type_bp.route("/item_types/<int:item_type_id>", methods=["PUT"])
 def update_item_type(item_type_id):
-    data = request.get_json()
+    data = parse_body(
+        required={"name": str},
+        optional={"description": str, "replacement_cost": float},
+    )
     item_type = item_type_repository.update(
         item_type_id=item_type_id,
         name=data["name"],

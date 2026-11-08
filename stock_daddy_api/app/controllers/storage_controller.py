@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
+from app.Validation_Helper import parse_body
 from app.repositories import storage_repository
 
 storage_bp = Blueprint("storage_bp", __name__)
@@ -12,7 +13,9 @@ def get_storages():
 
 @storage_bp.route("/storages", methods=["POST"])
 def create_storage():
-    data = request.get_json()
+    data = parse_body(
+        required={"room_id": int, "storage_type": str},
+    )
     storage_unit = storage_repository.create(
         room_id=data["room_id"],
         storage_type=data["storage_type"],
@@ -30,7 +33,9 @@ def get_storage(storage_id):
 
 @storage_bp.route("/storages/<int:storage_id>", methods=["PUT"])
 def update_storage(storage_id):
-    data = request.get_json()
+    data = parse_body(
+        required={"room_id": int, "storage_type": str},
+    )
     storage_unit = storage_repository.update(
         storage_id=storage_id,
         room_id=data["room_id"],
