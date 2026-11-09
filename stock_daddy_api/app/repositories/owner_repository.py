@@ -1,10 +1,19 @@
 from app.db.connection import get_connection
 from app.models.owner import Owner
 
-# Get all owners
-def get_all():
+
+def get_all(user_id=None):
+    sql = "SELECT * FROM owners"
+    params = []
+    if user_id is not None:
+        sql += (
+            " WHERE owner_id = ? OR owner_id IN (SELECT owner_id FROM business_member "
+            "WHERE business_id IN (SELECT business_id FROM business_member WHERE owner_id = ?))"
+        )
+        params = [user_id, user_id]
+
     conn = get_connection()
-    rows = conn.execute("SELECT * FROM owners").fetchall()
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
 
     return [Owner.from_row(row) for row in rows]
@@ -39,6 +48,18 @@ def get_by_id(owner_id):
 
     return Owner.from_row(row)
 
+# Find a person by email 
+def get_by_email(email):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM owners WHERE lower(email) = lower(?)", (email,)
+    ).fetchone()
+    conn.close()
+
+    if row is None:
+        return None
+
+    return Owner.from_row(row)
 
 def update(owner_id, first_name, last_name, email):
     conn = get_connection()

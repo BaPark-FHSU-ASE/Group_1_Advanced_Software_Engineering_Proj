@@ -2,9 +2,36 @@ from app.db.connection import get_connection
 from app.models.item import Item
 
 
-def get_all():
+
+_MY_STORAGE_UNITS = (
+    "SELECT storage_id FROM storage WHERE room_id IN "
+    "(SELECT room_id FROM room WHERE building_id IN "
+    "(SELECT building_id FROM building WHERE business_id IN "
+    "(SELECT business_id FROM business_member WHERE owner_id = ?)))"
+)
+
+_LAST_KNOWN_STORAGE = (
+    "SELECT COALESCE(m.from_storage_id, m.to_storage_id) FROM item_movement m "
+    "WHERE m.item_id = item.item_id "
+    "AND (m.from_storage_id IS NOT NULL OR m.to_storage_id IS NOT NULL) "
+    "ORDER BY m.moved_at DESC, m.item_movement_id DESC LIMIT 1"
+)
+
+
+def get_all(include_retired=False, user_id=None):
+    sql = "SELECT * FROM item WHERE 1 = 1"
+    params = []
+    if not include_retired:
+        sql += " AND retired IS NULL"
+    if user_id is not None:
+        sql += (
+            f" AND (storage_id IN ({_MY_STORAGE_UNITS})"
+            f" OR (storage_id IS NULL AND ({_LAST_KNOWN_STORAGE}) IN ({_MY_STORAGE_UNITS})))"
+        )
+        params += [user_id, user_id]
+
     conn = get_connection()
-    rows = conn.execute("SELECT * FROM item").fetchall()
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
 
     return [Item.from_row(row) for row in rows]

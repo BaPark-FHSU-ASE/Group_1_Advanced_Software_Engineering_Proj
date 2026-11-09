@@ -43,6 +43,19 @@ TEST_FILES = [
      "tests/test_target_quantity_routes.py",
      "tests/test_validation.py",
      "tests/test_api_error_handling.py",
+     "tests/test_business_member_repository.py",
+     "tests/test_access.py",
+     "tests/test_business_member_routes.py",
+     "tests/test_retire_repository.py",
+     "tests/test_business_lookup_repository.py",
+     "tests/test_retire_helper.py",
+     "tests/test_building_routes.py",
+     "tests/test_business_routes.py",
+     "tests/test_room_routes.py",
+     "tests/test_storage_routes.py",
+     "tests/test_item_routes.py",
+     "tests/test_item_type_routes.py",
+     "tests/test_owner_routes.py",
 ]
 
 if __name__ == "__main__":

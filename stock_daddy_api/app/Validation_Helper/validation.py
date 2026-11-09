@@ -75,3 +75,28 @@ def parse_body(required=None, optional=None):
     if not isinstance(data, dict):
         raise ValidationError("Request body must be a JSON object")
     return check_fields(data, required, optional)
+
+
+
+def require_query_int(name):
+    raw = request.args.get(name)
+    if raw is None or raw.strip() == "":
+        raise ValidationError(f"{name} is required")
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValidationError(f"{name} must be a whole number") from None
+    
+    
+
+
+def query_flag(name):
+    raw = request.args.get(name)
+    if raw is None:
+        return False
+    value = raw.strip().lower()
+    if value in ("true", "1"):
+        return True
+    if value in ("false", "0"):
+        return False
+    raise ValidationError(f"{name} must be true or false")    

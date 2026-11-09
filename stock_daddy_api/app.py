@@ -10,6 +10,7 @@ from app.controllers.storage_controller import storage_bp
 from app.controllers.item_type_controller import item_type_bp
 from app.controllers.item_controller import item_bp
 from app.controllers.target_quantity_controller import target_quantity_bp
+from app.controllers.business_member_controller import business_member_bp
 
 app = Flask(__name__)
 app.teardown_appcontext(close_connections)
@@ -22,6 +23,7 @@ app.register_blueprint(storage_bp)
 app.register_blueprint(item_type_bp)
 app.register_blueprint(item_bp)
 app.register_blueprint(target_quantity_bp)
+app.register_blueprint(business_member_bp)
 
 
 if __name__ == "__main__":
