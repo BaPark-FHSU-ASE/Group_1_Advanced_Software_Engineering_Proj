@@ -4,7 +4,7 @@ Glue between the database, Scott's optimizer (Optimizer/), and the
 
     db.get_optimizer_inputs(owner_id)   plain dicts from SQLite
         -> build_instance()             Optimizer.models.Instance
-        -> branch_and_bound()           optimal plan (REQ-18) + gap (NF-REQ-8)
+        -> solve_milp()                 optimal plan (REQ-18) + gap (NF-REQ-8)
         -> nearest_source_first()       greedy baseline (REQ-20)
         -> to_view()                    the dict redistribute.html renders
 
@@ -27,7 +27,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from Optimizer.branch_and_bound import branch_and_bound  # noqa: E402
+from Optimizer.milp_solver import solve_milp  # noqa: E402
 from Optimizer.models import Instance, ItemType, Plan, Route  # noqa: E402
 from Optimizer.nearest_source import nearest_source_first  # noqa: E402
 
@@ -139,10 +139,10 @@ def generate_plan(owner_id: int, deadline_seconds: float = DEADLINE_SECONDS) -> 
         }
 
     try:
-        plan, gap = branch_and_bound(instance, deadline_seconds=deadline_seconds)
+        plan, gap = solve_milp(instance, deadline_seconds=deadline_seconds)
     except ValueError as exc:
-        # branch_and_bound raises ValueError when even the LP relaxation is
-        # infeasible, or when the deadline passes with no plan at all.
+        # solve_milp raises ValueError if a shortage can't be filled at
+        # all, or if the deadline passes before it finds any plan.
         raise NoFeasiblePlan(str(exc)) from exc
 
     baseline = nearest_source_first(instance)

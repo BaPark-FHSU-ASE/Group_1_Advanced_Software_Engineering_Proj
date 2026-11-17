@@ -17,6 +17,7 @@ TEST_FILES = [
     "Optimizer/tests/test_plan_invariants.py",
     "Optimizer/tests/test_decision_table.py",
     "Optimizer/tests/test_feasibility.py",
+    "Optimizer/tests/test_milp_solver.py",
     "Optimizer/tests/test_random_backtoback.py",
 ]
 
