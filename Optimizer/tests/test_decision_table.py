@@ -87,18 +87,10 @@ def test_no_plan_when_shortage_can_be_met_neither_way(case, instance):
         branch_and_bound(instance)
 
 
-# DT-9 does fail, which is right, but for the wrong reason. Without any
-# routes or a way to buy, the LP ends up with zero variables, so linprog
-# raises its own input error and the owner never sees our "infeasible"
-# message. This is DEF-1. The xfail is strict, so as soon as
-# that bug gets fixed this test will start failing to remind us to remove
-# the marker.
-@pytest.mark.xfail(
-    strict=True,
-    reason="DEF-1: no routes and no acquisition option leaves the LP with "
-    "no variables, and linprog's input error escapes instead of our "
-    "infeasibility message.",
-)
+# DT-9 used to fail for the wrong reason: with no routes and no way to buy,
+# the LP had zero variables and linprog's own input error came out instead
+# of our "infeasible" message (DEF-1). The check in feasibility.py now
+# catches it first, so this went from an expected failure to a normal test.
 def test_dt9_reports_infeasibility_not_a_solver_error():
     with pytest.raises(ValueError, match="infeasible"):
         branch_and_bound(_instance(None, 5, routed=False))

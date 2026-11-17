@@ -24,6 +24,7 @@ import time
 import numpy as np
 from scipy.optimize import linprog
 
+from .feasibility import check_fillable
 from .models import Instance, Plan
 from .nearest_source import nearest_source_first
 from .residual import solve_residual
@@ -142,6 +143,10 @@ def branch_and_bound(instance: Instance, deadline_seconds: float = 30.0) -> tupl
     NF-REQ-8 requires be reported rather than presented as an optimal
     result when the deadline elapses first."""
     start = time.monotonic()
+
+    # Catch shortages that can't be filled any way before SciPy sees them,
+    # so the owner gets a real explanation instead of a solver error (DEF-1).
+    check_fillable(instance)
 
     # The greedy baseline is only a seed, and it is allowed to fail. It
     # consumes supply myopically in building order, so it can hand a source
