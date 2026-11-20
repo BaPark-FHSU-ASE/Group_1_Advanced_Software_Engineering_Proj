@@ -2,9 +2,21 @@ from app.db.connection import get_connection
 from app.models.storage import Storage
 
 
-def get_all():
+def get_all(include_retired=False, user_id=None):
+    sql = "SELECT * FROM storage WHERE 1 = 1"
+    params = []
+    if not include_retired:
+        sql += " AND retired IS NULL"
+    if user_id is not None:
+        sql += (
+            " AND room_id IN (SELECT room_id FROM room WHERE building_id IN "
+            "(SELECT building_id FROM building WHERE business_id IN "
+            "(SELECT business_id FROM business_member WHERE owner_id = ?)))"
+        )
+        params.append(user_id)
+
     conn = get_connection()
-    rows = conn.execute("SELECT * FROM storage").fetchall()
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
 
     return [Storage.from_row(row) for row in rows]

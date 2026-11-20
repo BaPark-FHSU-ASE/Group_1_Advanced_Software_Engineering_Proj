@@ -1,11 +1,13 @@
 class Item:
-    def __init__(self, item_id, item_type_id, storage_id, item_name, item_status, date_added=None):
+    def __init__(self, item_id, item_type_id, storage_id, item_name, item_status,
+                 date_added=None, retired=None):
         self.item_id = item_id
         self.item_type_id = item_type_id
         self.storage_id = storage_id
         self.item_name = item_name
         self.item_status = item_status
         self.date_added = date_added
+        self.retired = retired
 
     @classmethod
     def from_row(cls, row):
@@ -16,6 +18,7 @@ class Item:
             item_name=row["item_name"],
             item_status=row["item_status"],
             date_added=row["date_added"],
+            retired=row["retired"],
         )
 
     def to_dict(self):
@@ -26,4 +29,5 @@ class Item:
             "item_name": self.item_name,
             "item_status": self.item_status,
             "date_added": self.date_added,
+            "retired": self.retired,
         }
