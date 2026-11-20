@@ -22,9 +22,17 @@ A3 no plan (ValueError)            .    X    .    .    .    .    X    .    X
 import pytest
 
 from Optimizer.branch_and_bound import branch_and_bound
+from Optimizer.milp_solver import solve_milp
 from Optimizer.models import Instance, ItemType, Route
 
 TOL = 0.005
+
+
+# run every rule on both solvers. solve_milp is the one the app uses,
+# branch_and_bound is the backup check
+@pytest.fixture(params=[solve_milp, branch_and_bound], ids=["milp", "bnb"])
+def solve(request):
+    return request.param
 
 
 def _instance(replacement_cost, surplus, *, fixed=72.0, miles=10.0, routed=True):
@@ -66,8 +74,8 @@ FEASIBLE = [
 
 
 @pytest.mark.parametrize("case, instance, moved, bought, total", FEASIBLE)
-def test_buy_versus_transfer(case, instance, moved, bought, total):
-    plan, gap = branch_and_bound(instance)
+def test_buy_versus_transfer(solve, case, instance, moved, bought, total):
+    plan, gap = solve(instance)
     assert _units_transferred(plan) == moved, case
     assert _units_acquired(plan) == bought, case
     assert abs(plan.total_cost - total) < TOL, case
@@ -82,31 +90,23 @@ def test_buy_versus_transfer(case, instance, moved, bought, total):
         ("DT-9", _instance(None, 5, routed=False)),
     ],
 )
-def test_no_plan_when_shortage_can_be_met_neither_way(case, instance):
+def test_no_plan_when_shortage_can_be_met_neither_way(solve, case, instance):
     with pytest.raises(ValueError):
-        branch_and_bound(instance)
+        solve(instance)
 
 
-# DT-9 does fail, which is right, but for the wrong reason. Without any
-# routes or a way to buy, the LP ends up with zero variables, so linprog
-# raises its own input error and the owner never sees our "infeasible"
-# message. This is DEF-1. The xfail is strict, so as soon as
-# that bug gets fixed this test will start failing to remind us to remove
-# the marker.
-@pytest.mark.xfail(
-    strict=True,
-    reason="DEF-1: no routes and no acquisition option leaves the LP with "
-    "no variables, and linprog's input error escapes instead of our "
-    "infeasibility message.",
-)
-def test_dt9_reports_infeasibility_not_a_solver_error():
+# DT-9 used to fail for the wrong reason: with no routes and no way to buy,
+# the LP had zero variables and linprog's own input error came out instead
+# of our "infeasible" message (DEF-1). The check in feasibility.py now
+# catches it first, so this went from an expected failure to a normal test.
+def test_dt9_reports_infeasibility_not_a_solver_error(solve):
     with pytest.raises(ValueError, match="infeasible"):
-        branch_and_bound(_instance(None, 5, routed=False))
+        solve(_instance(None, 5, routed=False))
 
 
-def test_tie_between_transfer_and_purchase_is_priced_correctly():
+def test_tie_between_transfer_and_purchase_is_priced_correctly(solve):
     """Boundary case. Transferring costs 72 + 2 x 0.50 = $73.00, and buying
     2 x 36.50 is also $73.00. Either one is optimal, so I only check the
     cost and don't care which option it picked."""
-    plan, _gap = branch_and_bound(_instance(36.5, 5))
+    plan, _gap = solve(_instance(36.5, 5))
     assert abs(plan.total_cost - 73.00) < TOL

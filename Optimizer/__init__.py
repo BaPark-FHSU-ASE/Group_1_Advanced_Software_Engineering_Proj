@@ -1,4 +1,5 @@
 from .enumerate_bruteforce import enumerate_bruteforce
+from .milp_solver import solve_milp
 from .models import Instance, ItemType, Plan, Route, Trip
 from .nearest_source import nearest_source_first
 from .residual import solve_residual
@@ -12,4 +13,5 @@ __all__ = [
     "solve_residual",
     "nearest_source_first",
     "enumerate_bruteforce",
+    "solve_milp",
 ]

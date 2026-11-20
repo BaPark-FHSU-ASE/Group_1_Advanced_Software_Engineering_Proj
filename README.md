@@ -179,10 +179,11 @@ sqlite> SELECT * FROM v_building_item_type_position LIMIT 5;
 ## Optimizer
 
 `Optimizer/` plans inter-building redistribution as a fixed-charge
-transportation problem. `branch_and_bound.py` finds the optimal plan (using
-numpy/scipy for its LP relaxations), `nearest_source.py` is the
-nearest-site baseline it's compared against, and `enumerate_bruteforce.py`
-checks optimality on small instances. The `/redistribute` page calls it
+transportation problem. `milp_solver.py` finds the optimal plan using
+SciPy's MILP solver (HiGHS), and `nearest_source.py` is the nearest-site
+baseline it's compared against. `branch_and_bound.py` (our original solver)
+and `enumerate_bruteforce.py` are used in the tests to double check it.
+Run `python -m Optimizer.benchmark` to check the NF-REQ-7/8 timings. The `/redistribute` page calls it
 through `frontend/redistribution.py`.
 
 ---

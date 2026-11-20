@@ -1,5 +1,12 @@
 """
-BranchAndBound: the production method. Branches only on route-opening
+BranchAndBound: our own search over route decisions.
+
+Note: as of V2 the app doesn't use this anymore. It was too slow for
+NF-REQ-7 (17.6 s on the worst benchmark case, limit is 5 s), so the app
+uses milp_solver.py now (risk R-1). I kept this one so the tests can check
+it, the MILP solver and the brute force solver all give the same answer.
+
+Branches only on route-opening
 decisions y_ij; once y is fixed, solve_residual finds the exact integral
 optimum for the rest, so the LP relaxation only needs to bound the y
 variables to be integral for a node to be accepted as a candidate
@@ -24,6 +31,7 @@ import time
 import numpy as np
 from scipy.optimize import linprog
 
+from .feasibility import check_fillable
 from .models import Instance, Plan
 from .nearest_source import nearest_source_first
 from .residual import solve_residual
@@ -142,6 +150,10 @@ def branch_and_bound(instance: Instance, deadline_seconds: float = 30.0) -> tupl
     NF-REQ-8 requires be reported rather than presented as an optimal
     result when the deadline elapses first."""
     start = time.monotonic()
+
+    # Catch shortages that can't be filled any way before SciPy sees them,
+    # so the owner gets a real explanation instead of a solver error (DEF-1).
+    check_fillable(instance)
 
     # The greedy baseline is only a seed, and it is allowed to fail. It
     # consumes supply myopically in building order, so it can hand a source

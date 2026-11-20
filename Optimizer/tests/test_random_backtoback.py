@@ -1,7 +1,7 @@
 """
-Compares branch_and_bound against the brute-force enumerator on a large
-batch of random instances, and checks every plan against constraints
-C1-C3 from Section 10b while it's at it.
+Compares both solvers (branch_and_bound and solve_milp, the one the app
+uses) against the brute force solver on a bunch of random instances, and
+checks every plan against constraints C1-C3 from Section 10b too.
 
 I added this after looking at branch coverage. The reference instances in
 instances.py get solved at the root node, so the part of the search that
@@ -18,6 +18,7 @@ import pytest
 
 from Optimizer.branch_and_bound import branch_and_bound
 from Optimizer.enumerate_bruteforce import enumerate_bruteforce
+from Optimizer.milp_solver import solve_milp
 from Optimizer.random_instances import random_instance
 
 TOL = 0.005
@@ -48,10 +49,7 @@ def test_branch_and_bound_matches_the_oracle(instance):
     assert gap == pytest.approx(0.0, abs=1e-9)
 
 
-@pytest.mark.parametrize("instance", CASES)
-def test_plan_satisfies_c1_c2_c3(instance):
-    plan, _gap = branch_and_bound(instance)
-
+def _check_c1_c2_c3(instance, plan):
     # C1: nobody ships more than their shippable surplus
     for (i, k), surplus in instance.supply.items():
         shipped = sum(t.units_by_type.get(k, 0) for t in plan.trips if t.origin == i)
@@ -66,3 +64,20 @@ def test_plan_satisfies_c1_c2_c3(instance):
     for trip in plan.trips:
         assert (trip.origin, trip.dest) in plan.opened_routes
         assert (trip.origin, trip.dest) in instance.routes
+
+
+@pytest.mark.parametrize("instance", CASES)
+def test_plan_satisfies_c1_c2_c3(instance):
+    plan, _gap = branch_and_bound(instance)
+    _check_c1_c2_c3(instance, plan)
+
+
+# same checks for solve_milp. if one fails, the seed id in the test name
+# tells you which instance to rerun
+@pytest.mark.parametrize("instance", CASES)
+def test_milp_matches_the_oracle_and_satisfies_c1_c2_c3(instance):
+    oracle = enumerate_bruteforce(instance)
+    plan, gap = solve_milp(instance)
+    assert abs(plan.total_cost - oracle.total_cost) < TOL
+    assert gap == pytest.approx(0.0, abs=1e-9)
+    _check_c1_c2_c3(instance, plan)
