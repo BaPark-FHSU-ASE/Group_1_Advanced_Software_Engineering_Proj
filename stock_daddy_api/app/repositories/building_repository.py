@@ -1,10 +1,21 @@
-from app.db.connection import get_connection
+﻿from app.db.connection import get_connection
 from app.models.building import Building
 
 
-def get_all():
+def get_all(include_retired=False, user_id=None):
+    sql = "SELECT * FROM building WHERE 1 = 1"
+    params = []
+    if not include_retired:
+        sql += " AND retired IS NULL"
+    if user_id is not None:
+        sql += (
+            " AND business_id IN "
+            "(SELECT business_id FROM business_member WHERE owner_id = ?)"
+        )
+        params.append(user_id)
+
     conn = get_connection()
-    rows = conn.execute("SELECT * FROM building").fetchall()
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
 
     return [Building.from_row(row) for row in rows]

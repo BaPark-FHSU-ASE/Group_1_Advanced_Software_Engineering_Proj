@@ -2,9 +2,18 @@ from app.db.connection import get_connection
 from app.models.business import Business
 
 
-def get_all():
+def get_all(include_retired=False, user_id=None):
+
+    sql = "SELECT * FROM business WHERE 1 = 1"
+    params = []
+    if not include_retired:
+        sql += " AND retired IS NULL"
+    if user_id is not None:
+        sql += " AND business_id IN (SELECT business_id FROM business_member WHERE owner_id = ?)"
+        params.append(user_id)
+
     conn = get_connection()
-    rows = conn.execute("SELECT * FROM business").fetchall()
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
 
     return [Business.from_row(row) for row in rows]
@@ -12,17 +21,25 @@ def get_all():
 
 def create(name, owner_id):
     conn = get_connection()
-    cursor = conn.execute(
-        "INSERT INTO business (name, owner_id) VALUES (?, ?)",
-        (name, owner_id),
-    )
-    conn.commit()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO business (name, owner_id) VALUES (?, ?)",
+            (name, owner_id),
+        )
+        new_business_id = cursor.lastrowid
 
-    new_business_id = cursor.lastrowid
-    row = conn.execute(
-        "SELECT * FROM business WHERE business_id = ?", (new_business_id,)
-    ).fetchone()
-    conn.close()
+        conn.execute(
+            "INSERT INTO business_member (business_id, owner_id, role) "
+            "VALUES (?, ?, 'owner')",
+            (new_business_id, owner_id),
+        )
+        conn.commit()
+
+        row = conn.execute(
+            "SELECT * FROM business WHERE business_id = ?", (new_business_id,)
+        ).fetchone()
+    finally:
+        conn.close()
 
     return Business.from_row(row)
 
@@ -61,8 +78,14 @@ def update(business_id, name, owner_id):
 
 def delete(business_id):
     conn = get_connection()
-    cursor = conn.execute("DELETE FROM business WHERE business_id = ?", (business_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("DELETE FROM business_member WHERE business_id = ?", (business_id,))
+        cursor = conn.execute("DELETE FROM business WHERE business_id = ?", (business_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
     return cursor.rowcount > 0
