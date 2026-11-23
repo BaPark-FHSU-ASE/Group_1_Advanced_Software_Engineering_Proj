@@ -62,6 +62,7 @@
                             <button type="submit" class="btn btn-primary btn-full">Save Name</button>
                         </form>
                     </details>
+                    <a href="{{ url_for('dashboard.team', business_id=biz.id) }}" class="btn btn-small btn-text">Team</a>
                     {{ retire_button(url_for('dashboard.retire_business', business_id=biz.id), "this business",
                                      "Retire its buildings first.") }}
                 </div>

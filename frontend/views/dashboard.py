@@ -54,3 +54,51 @@ def add_building(business_id):
     flash(f'Added building at {building["street_address"]}, {building["city"]}. '
           "Add a room next.", "success")
     return redirect(url_for("buildings.building", building_id=building["building_id"], add="room"))
+
+
+# --- Team: who can use a business, and as what --------------------------------
+
+def _business(user_id, business_id):
+    """The business as the Dashboard lists it, or None if the user isn't in it."""
+    return next((b for b in api_client.get_dashboard(user_id) if b["id"] == business_id), None)
+
+
+@bp.route("/businesses/<int:business_id>/team")
+@login_required
+def team(business_id):
+    user_id = current_user_id()
+    business = _business(user_id, business_id)
+    if business is None:
+        return redirect(url_for("dashboard.dashboard"))
+    return render_template(
+        "team.html",
+        business=business,
+        members=api_client.get_members(user_id, business_id),
+        me=user_id,
+    )
+
+
+@bp.route("/businesses/<int:business_id>/team", methods=["POST"])
+@login_required
+def add_member(business_id):
+    email = form_text("email")
+    api_client.add_member(current_user_id(), business_id, email, form_text("role"))
+    flash(f"Added {email} to the team.", "success")
+    return redirect(url_for("dashboard.team", business_id=business_id))
+
+
+@bp.route("/businesses/<int:business_id>/team/<int:member_id>/role", methods=["POST"])
+@login_required
+def change_member_role(business_id, member_id):
+    role = form_text("role")
+    api_client.change_member_role(current_user_id(), business_id, member_id, role)
+    flash(f"Changed their role to {role}.", "success")
+    return redirect(url_for("dashboard.team", business_id=business_id))
+
+
+@bp.route("/businesses/<int:business_id>/team/<int:member_id>/remove", methods=["POST"])
+@login_required
+def remove_member(business_id, member_id):
+    api_client.remove_member(current_user_id(), business_id, member_id)
+    flash("Removed them from the team.", "success")
+    return redirect(url_for("dashboard.team", business_id=business_id))
