@@ -1,0 +1,29 @@
+{#
+  Shared bits of page markup.
+
+  retire_button: a Retire button with a confirm step. Retiring hides the
+  record everywhere but keeps its movement history (NF-REQ-5); the API
+  refuses if anything is still inside it. Uses <details> like the other
+  inline forms, so it needs no JavaScript.
+#}
+{% macro retire_button(action, what, note="", small=True) %}
+<details class="inline-form">
+    <summary class="btn {{ 'btn-small' if small }} btn-text btn-danger-text">Retire</summary>
+    <form method="POST" action="{{ action }}" class="inline-form-body">
+        <p class="confirm-text">Retire {{ what }}? It disappears from lists, counts and plans, but its history is kept.</p>
+        {% if note %}<p class="form-hint">{{ note }}</p>{% endif %}
+        <button type="submit" class="btn btn-danger btn-full">Yes, retire {{ what }}</button>
+    </form>
+</details>
+{% endmacro %}
+
+{% macro status_badge(status) %}
+{% if status == "In Storage" %}<span class="badge badge-ok">In Storage</span>
+{% elif status == "In Use" %}<span class="badge badge-warning">In Use</span>
+{% elif status == "In Transit" %}<span class="badge badge-transit">In Transit</span>
+{% endif %}
+{% endmacro %}
+
+{% macro expired_badge(item) %}
+{% if item.expired %}<span class="badge badge-expired" title="Past its item type's service life (REQ-23)">Past service life</span>{% endif %}
+{% endmacro %}

@@ -121,3 +121,11 @@ def client():
 def employee():
     """Logged in as an employee (owns nothing)."""
     return logged_in_client(is_owner=False, user_id=2)
+
+
+def page_text(resp):
+    """A response's HTML with entities decoded and whitespace squeezed,
+    so tests can look for the sentence a user would read."""
+    import html
+    import re
+    return re.sub(r"\s+", " ", html.unescape(resp.get_data(as_text=True)))

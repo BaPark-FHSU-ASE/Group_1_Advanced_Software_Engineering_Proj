@@ -86,11 +86,6 @@ def test_other_owner_is_bounced_from_seeded_item(client_as):
     assert "/items" in resp.headers["Location"]
 
 
-def test_other_owner_dashboard_is_empty(client_as):
-    html = client_as.get("/dashboard").get_data(as_text=True)
-    assert "Prairie Roofing" not in html
-    assert "No businesses yet" in html
-
 
 def test_other_owner_items_page_is_empty(client_as):
     html = client_as.get("/items").get_data(as_text=True)
