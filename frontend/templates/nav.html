@@ -20,7 +20,7 @@
     <nav class="sidebar-nav">
         <div class="nav-section-label">Custody</div>
         <a href="{{ url_for('dashboard.dashboard') }}"   class="nav-item {% if request.endpoint == 'dashboard.dashboard'   %}active{% endif %}">🏠 Dashboard</a>
-        <a href="{{ url_for('items.items') }}"       class="nav-item {% if request.endpoint in ['items.items','items.item_detail','items.new_items'] %}active{% endif %}">📦 Items</a>
+        <a href="{{ url_for('items.items') }}"       class="nav-item {% if request.endpoint in ['items.items','items.item_detail','items.new_items','items.movements'] %}active{% endif %}">📦 Items</a>
 
         <div class="nav-section-label">Setup</div>
         <a href="{{ url_for('item_types.item_types') }}" class="nav-item {% if request.endpoint == 'item_types.item_types' %}active{% endif %}">🏷 Item Types</a>

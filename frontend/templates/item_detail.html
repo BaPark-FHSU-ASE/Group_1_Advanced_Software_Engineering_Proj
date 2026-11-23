@@ -116,7 +116,10 @@
 
         <!-- Movement history -->
         <div class="card">
-            <div class="card-header"><span>🕐 Movement History</span></div>
+            <div class="card-header">
+                <span>🕐 Movement History</span>
+                <a href="{{ url_for('items.export_movements', item_id=item.id) }}" class="btn btn-small btn-secondary">⬇ Export CSV</a>
+            </div>
             <table class="table">
                 <thead>
                     <tr>

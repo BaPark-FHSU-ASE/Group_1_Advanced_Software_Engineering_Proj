@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Movement History{% endblock %}
+
+{# Search and export every item's movement history (REQ-13). #}
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb"><a href="{{ url_for('items.items') }}">Items</a> / Movement History</div>
+                <h2>Movement History</h2>
+                <p>Every move and status change, newest first</p>
+            </div>
+            <a href="{{ url_for('items.export_movements', **filters) }}" class="btn btn-secondary">⬇ Export CSV</a>
+        </div>
+
+        {% include "_flashes.html" %}
+
+        <div class="card">
+            <form method="GET" action="{{ url_for('items.movements') }}" class="filter-form">
+                {% if filters.item_id %}<input type="hidden" name="item_id" value="{{ filters.item_id }}" />{% endif %}
+                <div class="form-group">
+                    <label for="mv-q">Item name</label>
+                    <input type="text" id="mv-q" name="q" value="{{ filters.q or '' }}" placeholder="e.g. Nail Gun #3" />
+                </div>
+                <div class="form-group">
+                    <label for="mv-type">Item type</label>
+                    <select id="mv-type" name="item_type_id">
+                        <option value="">Any</option>
+                        {% for t in item_types %}
+                        <option value="{{ t.item_type_id }}" {% if filters.item_type_id == t.item_type_id %}selected{% endif %}>{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="mv-building">Building</label>
+                    <select id="mv-building" name="building_id">
+                        <option value="">Any</option>
+                        {% for b in buildings %}
+                        <option value="{{ b.id }}" {% if filters.building_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="mv-status">Changed to</label>
+                    <select id="mv-status" name="status">
+                        <option value="">Any</option>
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="mv-from">From</label>
+                    <input type="date" id="mv-from" name="date_from" value="{{ filters.date_from or '' }}" />
+                </div>
+                <div class="form-group">
+                    <label for="mv-to">To</label>
+                    <input type="date" id="mv-to" name="date_to" value="{{ filters.date_to or '' }}" />
+                </div>
+                <button type="submit" class="btn btn-primary">Search</button>
+                {% if filters %}<a href="{{ url_for('items.movements') }}" class="btn btn-text">Clear</a>{% endif %}
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span>{{ rows|length }} result{{ 's' if rows|length != 1 }}{% if filters.item_id %} for one item{% endif %}</span>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Item</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in rows %}
+                    <tr>
+                        <td>{{ m.date }}</td>
+                        <td><a href="{{ url_for('items.item_detail', item_id=m.item_id) }}">{{ m.item_name }}</a></td>
+                        <td>{{ m.item_type }}</td>
+                        <td>{{ m["from"] }}</td>
+                        <td>{{ m.to }}</td>
+                        <td>{{ m.status_change or "—" }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="empty-state">No movements match.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}

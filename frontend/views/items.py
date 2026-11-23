@@ -1,6 +1,6 @@
 """The item list, adding items, and an item's own page (Layer 1: Custody)."""
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 
 import api_client
 from helpers import current_user_id, form_int, form_text, login_required
@@ -105,3 +105,47 @@ def retire_item(item_id):
     api_client.retire_item(current_user_id(), item_id)
     flash("Retired the item. Its history is kept.", "success")
     return redirect(url_for("items.items"))
+
+
+# --- Movement history search and export (REQ-13) ----------------------------
+
+def _movement_filters():
+    """The search form's filters from the query string, leaving out blanks."""
+    filters = {}
+    for name in ("item_id", "item_type_id", "building_id"):
+        value = request.args.get(name, type=int)
+        if value is not None:
+            filters[name] = value
+    for name in ("status", "date_from", "date_to", "q"):
+        value = request.args.get(name, "").strip()
+        if value:
+            filters[name] = value
+    return filters
+
+
+@bp.route("/movements")
+@login_required
+def movements():
+    user_id = current_user_id()
+    filters = _movement_filters()
+    buildings = [b for biz in api_client.get_dashboard(user_id) for b in biz["buildings"]]
+    return render_template(
+        "movements.html",
+        rows=api_client.search_movements(user_id, **filters),
+        filters=filters,
+        item_types=api_client.get_item_types(user_id),
+        buildings=buildings,
+        statuses=api_client.ITEM_STATUSES,
+    )
+
+
+@bp.route("/movements/export.csv")
+@login_required
+def export_movements():
+    """The same rows as the search, as a CSV download."""
+    csv_text = api_client.export_movements_csv(current_user_id(), **_movement_filters())
+    return Response(
+        csv_text,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=movement_history.csv"},
+    )
