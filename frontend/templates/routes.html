@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Route Costs{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2>Route Costs</h2>
+                <p>What it costs to send items from one building to another. The optimizer plans with these.</p>
+            </div>
+            {% if is_owner and buildings|length > 1 %}
+            <details class="inline-form">
+                <summary class="btn btn-primary">+ Add Route</summary>
+                <form method="POST" action="{{ url_for('routes.add_route') }}" class="inline-form-body">
+                    <div class="form-group">
+                        <label for="rt-from">From</label>
+                        <select id="rt-from" name="from_building_id" required>
+                            <option value="" disabled selected>Choose…</option>
+                            {% for b in buildings %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="rt-to">To</label>
+                        <select id="rt-to" name="to_building_id" required>
+                            <option value="" disabled selected>Choose…</option>
+                            {% for b in buildings %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+                        </select>
+                        <span class="form-hint">Each direction is its own route.</span>
+                    </div>
+                    {% with r = none %}{% include "_route_cost_fields.html" %}{% endwith %}
+                    <button type="submit" class="btn btn-primary btn-full">Save Route</button>
+                </form>
+            </details>
+            {% endif %}
+        </div>
+
+        {% include "_flashes.html" %}
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Distance</th>
+                        <th>Dispatch</th>
+                        <th>Per Item per Mile</th>
+                        <th>Per Item</th>
+                        {% if is_owner %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in routes %}
+                    <tr>
+                        <td>{{ r.from_label }}</td>
+                        <td>{{ r.to_label }}</td>
+                        <td>{{ "%.1f"|format(r.distance_miles) }} mi</td>
+                        <td>${{ "%.2f"|format(r.fixed_dispatch_cost) }}</td>
+                        <td>${{ "%.4f"|format(r.cost_per_unit_mile) }}</td>
+                        <td>${{ "%.2f"|format(r.handling_cost_per_unit) }}</td>
+                        {% if is_owner %}
+                        <td class="table-actions">
+                            <details class="inline-form">
+                                <summary class="btn btn-small btn-text">Edit</summary>
+                                <form method="POST" action="{{ url_for('routes.edit_route', route_id=r.route_id) }}" class="inline-form-body">
+                                    {% include "_route_cost_fields.html" %}
+                                    <button type="submit" class="btn btn-primary btn-full">Save Route</button>
+                                </form>
+                            </details>
+                            <details class="inline-form">
+                                <summary class="btn btn-small btn-text btn-danger-text">Delete</summary>
+                                <form method="POST" action="{{ url_for('routes.delete_route', route_id=r.route_id) }}" class="inline-form-body">
+                                    <p class="confirm-text">Delete the route {{ r.from_label }} → {{ r.to_label }}? The optimizer won't send items this way.</p>
+                                    <button type="submit" class="btn btn-danger btn-full">Yes, delete this route</button>
+                                </form>
+                            </details>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            No routes yet.{% if is_owner and buildings|length > 1 %} Add one so the optimizer can move items between buildings.{% elif is_owner %} Add a second building first.{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}
