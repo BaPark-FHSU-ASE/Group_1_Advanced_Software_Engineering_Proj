@@ -1,51 +1,80 @@
-"""
-Tests for db.register_owner() / db.verify_owner().
-"""
+"""Login, register and logout through the API's /auth endpoints."""
 
 import pytest
-import db
+
+from tests.conftest import logged_in_client
 
 
-def test_register_owner_creates_hashed_password_not_plaintext():
-    owner_id = db.register_owner("Test", "User", "newuser@example.com", "correcthorse")
-    assert owner_id is not None
-
-    conn = db.get_connection()
-    row = conn.execute(
-        "SELECT password_hash FROM owners WHERE owner_id = ?", (owner_id,)
-    ).fetchone()
-    conn.close()
-
-    assert row["password_hash"] != "correcthorse"
-    assert row["password_hash"].startswith("scrypt:")
+@pytest.fixture
+def anon():
+    from app import app
+    app.config["TESTING"] = True
+    return app.test_client()
 
 
-def test_register_owner_duplicate_email_raises():
-    db.register_owner("First", "Person", "dupe@example.com", "password123")
-    with pytest.raises(db.EmailAlreadyRegistered):
-        db.register_owner("Second", "Person", "dupe@example.com", "different456")
+def test_login_page_renders(anon):
+    assert "Log In" in anon.get("/login").get_data(as_text=True)
 
 
-def test_verify_owner_correct_password_succeeds():
-    db.register_owner("Auth", "Test", "authtest@example.com", "mypassword")
-    result = db.verify_owner("authtest@example.com", "mypassword")
-    assert result is not None
-    assert result["first_name"] == "Auth"
-    assert "password_hash" not in result  # never leak the hash to the caller
+def test_login_sends_credentials_and_starts_session(anon, api):
+    resp = anon.post("/login", data={"email": " dale@prairieroofing.example ",
+                                     "password": "roofing123"})
+    assert resp.status_code == 302 and resp.location.endswith("/dashboard")
+    assert api.called("login") == [("dale@prairieroofing.example", "roofing123")]
+    with anon.session_transaction() as sess:
+        assert sess["owner_id"] == 1 and sess["user"] == "Dale" and sess["is_owner"] is True
 
 
-def test_verify_owner_wrong_password_fails():
-    db.register_owner("Wrong", "Pass", "wrongpass@example.com", "therealpassword")
-    result = db.verify_owner("wrongpass@example.com", "notquiteright")
-    assert result is None
+def test_employee_login_is_not_an_owner(anon, api):
+    from tests import sample_data
+    api.returns["login"] = sample_data.EMPLOYEE
+    anon.post("/login", data={"email": "crew@x", "password": "pw"})
+    with anon.session_transaction() as sess:
+        assert sess["is_owner"] is False
 
 
-def test_verify_owner_nonexistent_email_fails():
-    result = db.verify_owner("doesnotexist@example.com", "whatever")
-    assert result is None
+def test_wrong_password_shows_the_apis_message(anon, api):
+    api.fail("login", 401, "Invalid email or password.")
+    html = anon.post("/login", data={"email": "a@b.c", "password": "x"}).get_data(as_text=True)
+    assert "Invalid email or password." in html
+    with anon.session_transaction() as sess:
+        assert "owner_id" not in sess
 
 
-def test_verify_owner_seeded_credentials_work():
-    result = db.verify_owner("dale@prairieroofing.example", "roofing123")
-    assert result is not None
-    assert result["first_name"] == "Dale"
+def test_register_sends_fields_and_logs_in(anon, api):
+    resp = anon.post("/register", data={
+        "first_name": "New", "last_name": "Person", "email": "new@x.y",
+        "password": "longenough", "confirm_password": "longenough"})
+    assert resp.status_code == 302
+    assert api.called("register") == [("New", "Person", "new@x.y", "longenough")]
+    with anon.session_transaction() as sess:
+        assert sess["owner_id"] == 1
+
+
+def test_register_mismatched_passwords_never_reach_the_api(anon, api):
+    html = anon.post("/register", data={
+        "first_name": "A", "last_name": "B", "email": "a@b.c",
+        "password": "one11111", "confirm_password": "two22222"}).get_data(as_text=True)
+    assert "Passwords do not match." in html
+    assert api.called("register") == []
+
+
+def test_register_shows_api_validation(anon, api):
+    api.fail("register", 409, "An account with that email already exists.")
+    html = anon.post("/register", data={
+        "first_name": "A", "last_name": "B", "email": "a@b.c",
+        "password": "pw", "confirm_password": "pw"}).get_data(as_text=True)
+    assert "An account with that email already exists." in html
+
+
+def test_logout_clears_session(api):
+    client = logged_in_client()
+    client.get("/logout")
+    with client.session_transaction() as sess:
+        assert "owner_id" not in sess
+
+
+def test_pages_need_login(anon):
+    for path in ["/dashboard", "/items", "/compliance", "/redistribute"]:
+        resp = anon.get(path)
+        assert resp.status_code == 302 and "/login" in resp.location

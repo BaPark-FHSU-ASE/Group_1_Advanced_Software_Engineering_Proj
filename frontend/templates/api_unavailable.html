@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Can't reach the server{% endblock %}
+
+{% block body %}
+<div class="login-wrapper">
+    <div class="login-card">
+        <h1 class="login-logo">Stock Daddy</h1>
+        <div class="alert alert-error">
+            Couldn't reach the Stock Daddy API, so nothing was loaded or saved.
+        </div>
+        <p class="login-hint">
+            Make sure the API is running (starting the frontend with
+            <code>python app.py</code> starts it too), then
+            <a href="{{ request.url }}">try again</a>.
+        </p>
+    </div>
+</div>
+{% endblock %}

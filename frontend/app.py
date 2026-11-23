@@ -7,6 +7,7 @@ one blueprint per area (see views/__init__.py for the list).
 from flask import Flask
 
 import api_launcher
+from helpers import register_api_error_handlers
 from views import ALL_BLUEPRINTS
 
 
@@ -15,6 +16,7 @@ def create_app():
     app.secret_key = "dev-secret-key"  # Change before production
     for blueprint in ALL_BLUEPRINTS:
         app.register_blueprint(blueprint)
+    register_api_error_handlers(app)
     return app
 
 

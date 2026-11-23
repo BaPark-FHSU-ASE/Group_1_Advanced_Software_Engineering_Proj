@@ -1,10 +1,18 @@
-"""Login, register and logout."""
+"""Login, register and logout, through the API's /auth endpoints."""
 
 from flask import Blueprint, redirect, render_template, request, session, url_for
 
-import db
+import api_client
+from helpers import form_text, remember_roles
 
 bp = Blueprint("auth", __name__)
+
+
+def _start_session(owner):
+    session.clear()
+    session["user"] = owner["first_name"]
+    session["owner_id"] = owner["owner_id"]
+    remember_roles(owner.get("memberships", []))
 
 
 @bp.route("/")
@@ -18,14 +26,13 @@ def index():
 def login():
     error = None
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
-        password = request.form.get("password", "")
-        owner = db.verify_owner(email, password)
-        if owner is not None:
-            session["user"] = owner["first_name"]
-            session["owner_id"] = owner["owner_id"]
+        try:
+            owner = api_client.login(form_text("email"), request.form.get("password", ""))
+        except api_client.ApiError as e:
+            error = e.message
+        else:
+            _start_session(owner)
             return redirect(url_for("dashboard.dashboard"))
-        error = "Invalid email or password."
     return render_template("login.html", error=error)
 
 
@@ -33,26 +40,21 @@ def login():
 def register():
     error = None
     if request.method == "POST":
-        first_name = request.form.get("first_name", "").strip()
-        last_name = request.form.get("last_name", "").strip()
-        email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
-        confirm = request.form.get("confirm_password", "")
-
-        if not first_name or not last_name or not email or not password:
-            error = "All fields are required."
-        elif password != confirm:
+        # The only check left here: the API never sees the second copy.
+        if password != request.form.get("confirm_password", ""):
             error = "Passwords do not match."
-        elif len(password) < 8:
-            error = "Password must be at least 8 characters."
         else:
             try:
-                owner_id = db.register_owner(first_name, last_name, email, password)
-                session["user"] = first_name
-                session["owner_id"] = owner_id
+                owner = api_client.register(
+                    form_text("first_name"), form_text("last_name"),
+                    form_text("email"), password,
+                )
+            except api_client.ApiError as e:
+                error = e.message
+            else:
+                _start_session(owner)
                 return redirect(url_for("dashboard.dashboard"))
-            except db.EmailAlreadyRegistered:
-                error = "An account with that email already exists."
 
     return render_template("register.html", error=error)
 
