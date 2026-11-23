@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
 {% block title %}Stock Daddy – Surplus &amp; Shortage{% endblock %}
 
 {% block body %}
@@ -11,8 +12,12 @@
                 <h2>Surplus &amp; Shortage</h2>
                 <p>Compare on-hand quantities against stocking targets across all buildings</p>
             </div>
+            {% if is_owner %}
             <a href="{{ url_for('redistribute.redistribute') }}" class="btn btn-primary">🔄 Generate Redistribution Plan</a>
+            {% endif %}
         </div>
+
+        {% include "_flashes.html" %}
 
         <div class="card">
             <table class="table">
@@ -29,7 +34,7 @@
                 <tbody>
                     {% for row in report %}
                     <tr>
-                        <td>{{ row.building }}</td>
+                        <td><a href="{{ url_for('buildings.building', building_id=row.building_id) }}">{{ row.building }}</a></td>
                         <td>{{ row.item_type }}</td>
                         <td>{{ row.target }}</td>
                         <td>{{ row.on_hand }}</td>
@@ -47,6 +52,42 @@
                     {% else %}
                     <tr>
                         <td colspan="6" class="empty-state">No compliance data available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Items past their type's service life (REQ-23) -->
+        <div class="card" id="expired">
+            <div class="card-header">
+                <span>⏳ Past Service Life</span>
+                <span class="muted-note">Set a service life on an item type to track it</span>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Age</th>
+                        <th>Service Life</th>
+                        <th>Over By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in expired %}
+                    <tr>
+                        <td><a href="{{ url_for('items.item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+                        <td>{{ item.type }}</td>
+                        <td>{{ status_badge(item.status) }}</td>
+                        <td>{{ item.age_days }} days</td>
+                        <td>{{ item.service_life_days }} days</td>
+                        <td><span class="badge badge-expired">{{ item.days_over }} days</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-state">No items are past their service life.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

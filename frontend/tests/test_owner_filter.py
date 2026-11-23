@@ -47,9 +47,6 @@ def test_other_owner_cannot_open_seeded_item(other_owner):
     assert db.get_item_detail(OWNER, 1) is not None
 
 
-def test_other_owner_sees_no_compliance_rows(other_owner):
-    assert db.get_compliance_report(other_owner) == []
-
 
 def test_in_transit_item_still_belongs_to_its_owner():
     # The In Transit item has no storage_id; it's traced back to its owner

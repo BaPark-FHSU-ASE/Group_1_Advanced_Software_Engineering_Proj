@@ -1,35 +1,35 @@
-"""
-Tests for db.get_compliance_report(OWNER).
-"""
+"""Surplus & Shortage and the past-service-life list, against a fake API."""
 
-import db
-
-# The seeded account (dale@prairieroofing.example) owns all the seed data.
-OWNER = 1
+from tests.conftest import page_text
 
 
-def test_returns_thirty_rows():
-    # 5 buildings x 6 item types, one target_quantity row each per the seed data.
-    report = db.get_compliance_report(OWNER)
-    assert len(report) == 30
+def test_compliance_page_shows_variances(client, api):
+    text = page_text(client.get("/compliance"))
+    assert api.called("get_compliance") == [(1,)]
+    assert "-2 shortage" in text and "+4 surplus" in text
 
 
-def test_report_rows_have_expected_fields():
-    report = db.get_compliance_report(OWNER)
-    row = report[0]
-    assert set(row.keys()) == {"building", "item_type", "target", "on_hand", "available", "variance"}
+def test_building_names_link_to_their_page(client, api):
+    assert 'href="/building/2"' in client.get("/compliance").get_data(as_text=True)
 
 
-def test_variance_equals_on_hand_minus_target():
-    report = db.get_compliance_report(OWNER)
-    for row in report:
-        assert row["variance"] == row["on_hand"] - row["target"]
+def test_expired_items_listed(client, api):
+    text = page_text(client.get("/compliance"))
+    assert api.called("get_expired_items") == [(1,)]
+    assert "Past Service Life" in text
+    assert "760 days" in text and "730 days" in text and "30 days" in text
 
 
-def test_hays_nail_gun_shows_a_shortage():
-    # Verified earlier against the live seed data: Hays is short 2 nail guns.
-    report = db.get_compliance_report(OWNER)
-    row = next(r for r in report if r["building"] == "Hays" and r["item_type"] == "Nail Gun")
-    assert row["target"] == 3
-    assert row["on_hand"] == 1
-    assert row["variance"] == -2
+def test_no_expired_items(client, api):
+    api.returns["get_expired_items"] = []
+    assert "No items are past their service life." in page_text(client.get("/compliance"))
+
+
+def test_empty_compliance(client, api):
+    api.returns["get_compliance"] = []
+    assert "No compliance data available." in page_text(client.get("/compliance"))
+
+
+def test_redistribute_button_is_owner_only(client, employee, api):
+    assert "Generate Redistribution Plan" in page_text(client.get("/compliance"))
+    assert "Generate Redistribution Plan" not in page_text(employee.get("/compliance"))
