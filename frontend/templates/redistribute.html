@@ -11,7 +11,7 @@
                 <h2>Redistribute</h2>
                 <p>Optimal transfer plan to bring all sites back into compliance</p>
             </div>
-            <form method="POST" action="{{ url_for('redistribute') }}">
+            <form method="POST" action="{{ url_for('redistribute.redistribute') }}">
                 <button type="submit" class="btn btn-primary">
                     ▶ {% if plan.generated %}Run Again{% else %}Run Optimizer{% endif %}
                 </button>
@@ -118,7 +118,7 @@
                 <p>🔄 No plan generated yet.</p>
                 <p>Click <strong>Run Optimizer</strong> to compute the lowest-cost redistribution across all sites.</p>
                 <br>
-                <a href="{{ url_for('compliance') }}" class="btn btn-secondary">View Surplus &amp; Shortage First</a>
+                <a href="{{ url_for('compliance.compliance') }}" class="btn btn-secondary">View Surplus &amp; Shortage First</a>
             </div>
         </div>
         {% endif %}

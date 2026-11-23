@@ -8,7 +8,7 @@
     <main class="main-content">
         <div class="page-header">
             <div>
-                <div class="breadcrumb"><a href="{{ url_for('items') }}">Items</a> / {{ item.name }}</div>
+                <div class="breadcrumb"><a href="{{ url_for('items.items') }}">Items</a> / {{ item.name }}</div>
                 <h2>{{ item.name }}</h2>
                 <p>{{ item.type }}</p>
             </div>
@@ -20,7 +20,7 @@
              can be used one-handed out in the field. -->
         <div class="card">
             <div class="card-header"><span>🔁 Change Status</span></div>
-            <form method="POST" action="{{ url_for('item_status', item_id=item.id) }}" class="status-form">
+            <form method="POST" action="{{ url_for('items.item_status', item_id=item.id) }}" class="status-form">
                 {% if item.status == "In Transit" %}
                 <div class="form-group">
                     <label for="storage_id">Arrived at</label>

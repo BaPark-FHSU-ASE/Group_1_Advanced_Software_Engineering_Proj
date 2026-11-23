@@ -11,7 +11,7 @@
                 <h2>Items</h2>
                 <p>All individual inventory items across every site</p>
             </div>
-            <a href="{{ url_for('new_items') }}" class="btn btn-primary">+ Add Item</a>
+            <a href="{{ url_for('items.new_items') }}" class="btn btn-primary">+ Add Item</a>
         </div>
 
         {% include "_flashes.html" %}
@@ -32,7 +32,7 @@
                 <tbody>
                     {% for item in items %}
                     <tr>
-                        <td><a href="{{ url_for('item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+                        <td><a href="{{ url_for('items.item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
                         <td>{{ item.type }}</td>
                         <td>
                             {% if item.status == "In Storage" %}
@@ -47,7 +47,7 @@
                         <td>{{ item.room }}</td>
                         <td>{{ item.storage }}</td>
                         <td>
-                            <a href="{{ url_for('item_detail', item_id=item.id) }}" class="btn btn-small btn-secondary">View</a>
+                            <a href="{{ url_for('items.item_detail', item_id=item.id) }}" class="btn btn-small btn-secondary">View</a>
                         </td>
                     </tr>
                     {% else %}
