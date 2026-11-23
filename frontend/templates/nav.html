@@ -25,8 +25,10 @@
         <div class="nav-section-label">Compliance</div>
         <a href="{{ url_for('compliance.compliance') }}"  class="nav-item {% if request.endpoint == 'compliance.compliance'  %}active{% endif %}">⚠️ Surplus &amp; Shortage</a>
 
+        {% if is_owner %}
         <div class="nav-section-label">Decision Support</div>
         <a href="{{ url_for('redistribute.redistribute') }}" class="nav-item {% if request.endpoint == 'redistribute.redistribute' %}active{% endif %}">🔄 Redistribute</a>
+        {% endif %}
     </nav>
 
     <div class="sidebar-footer">

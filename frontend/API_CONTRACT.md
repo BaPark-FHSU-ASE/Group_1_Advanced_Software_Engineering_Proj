@@ -197,9 +197,14 @@ item's movement history.
 
 ## Redistribution plan (NEW, REQ-18 to REQ-21, REQ-24)
 
-`POST /plans` with `user_id`. Owner only. Port
-`frontend/redistribution.py` (Scott's adapter) behind the API; it reads only
-non-retired items that aren't In Use.
+`POST /plans` with `user_id`. Owner only. Port Scott's adapter
+`frontend/redistribution.py` and `db.get_optimizer_inputs` behind the API;
+they read only non-retired items that aren't In Use. The frontend no longer
+has the adapter; get it, and its tests in `frontend/tests/test_redistribute.py`
+(the instance B checks), from commit `c3daefc`:
+
+    git show c3daefc:frontend/redistribution.py
+    git show c3daefc:frontend/tests/test_redistribute.py
 
 Returns the dict `redistribution.generate_plan` returned, plus
 `shortage_costs` for REQ-21:
