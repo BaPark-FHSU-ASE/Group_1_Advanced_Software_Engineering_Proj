@@ -33,7 +33,7 @@
                     <select id="item_type_id" name="item_type_id" required>
                         <option value="">Choose a type…</option>
                         {% for t in item_types %}
-                        <option value="{{ t.id }}" {% if form.item_type_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+                        <option value="{{ t.item_type_id }}" {% if form.item_type_id == t.item_type_id %}selected{% endif %}>{{ t.name }}</option>
                         {% endfor %}
                     </select>
                 </div>

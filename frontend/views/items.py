@@ -1,9 +1,9 @@
 """The item list, adding items, and an item's own page (Layer 1: Custody)."""
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-import db
-from helpers import current_user_id, login_required
+import api_client
+from helpers import current_user_id, form_int, form_text, login_required
 
 bp = Blueprint("items", __name__)
 
@@ -11,46 +11,45 @@ bp = Blueprint("items", __name__)
 @bp.route("/items")
 @login_required
 def items():
-    item_list = db.get_items(current_user_id())
-    return render_template("items.html", user=session["user"], items=item_list)
+    item_list = api_client.get_items(current_user_id())
+    expired_count = sum(1 for item in item_list if item.get("expired"))
+    return render_template("items.html", items=item_list, expired_count=expired_count)
 
 
 @bp.route("/items/new", methods=["GET", "POST"])
 @login_required
 def new_items():
-    owner_id = current_user_id()
+    """Add one item, or several of one type at once (REQ-6, REQ-14)."""
+    user_id = current_user_id()
     error = None
     form = {
         "storage_id": request.values.get("storage_id", type=int),
-        "item_type_id": request.form.get("item_type_id", type=int),
+        "item_type_id": form_int("item_type_id"),
         "quantity": request.form.get("quantity", 1, type=int),
-        "name": request.form.get("name", "").strip(),
+        "name": form_text("name"),
     }
 
     if request.method == "POST":
-        if not form["storage_id"] or not form["item_type_id"]:
-            error = "Choose an item type and a storage unit."
-        elif form["quantity"] is None or not (1 <= form["quantity"] <= db.MAX_ITEMS_PER_ADD):
-            error = f"Quantity must be between 1 and {db.MAX_ITEMS_PER_ADD}."
+        try:
+            new_ids = api_client.add_items(user_id, form["storage_id"], form["item_type_id"],
+                                           form["quantity"], form["name"])
+        except api_client.ApiError as e:
+            # Stay on the form so nothing typed is lost. 404 means the
+            # storage unit or type isn't one of theirs.
+            error = ("That storage unit or item type wasn't found."
+                     if e.status == 404 else e.message)
         else:
-            try:
-                new_ids = db.add_items(owner_id, form["storage_id"], form["item_type_id"],
-                                       form["quantity"], form["name"])
-            except db.NotFoundOrNotOwned:
-                error = "That storage unit or item type wasn't found."
-            else:
-                flash(f"Added {len(new_ids)} item{'s' if len(new_ids) != 1 else ''}.", "success")
-                if len(new_ids) == 1:
-                    return redirect(url_for("items.item_detail", item_id=new_ids[0]))
-                return redirect(url_for("items.items"))
+            flash(f"Added {len(new_ids)} item{'s' if len(new_ids) != 1 else ''}.", "success")
+            if len(new_ids) == 1:
+                return redirect(url_for("items.item_detail", item_id=new_ids[0]))
+            return redirect(url_for("items.items"))
 
     return render_template(
         "item_form.html",
-        user=session["user"],
-        item_types=db.get_item_types(),
-        storages=db.get_storage_choices(owner_id),
+        item_types=api_client.get_item_types(user_id),
+        storages=api_client.get_storage_choices(user_id),
         form=form,
-        max_qty=db.MAX_ITEMS_PER_ADD,
+        max_qty=api_client.MAX_ITEMS_PER_ADD,
         error=error,
     )
 
@@ -58,29 +57,51 @@ def new_items():
 @bp.route("/items/<int:item_id>")
 @login_required
 def item_detail(item_id):
-    owner_id = current_user_id()
-    item = db.get_item_detail(owner_id, item_id)
-    if item is None:
-        return redirect(url_for("items.items"))
-    # An In Transit item needs somewhere to arrive, so offer the owner's
+    user_id = current_user_id()
+    item = api_client.get_item_detail(user_id, item_id)
+    is_item_owner = item.get("role") == "owner"
+    # An In Transit item needs somewhere to arrive, so offer the user's
     # storage units alongside the status buttons.
-    storages = db.get_storage_choices(owner_id) if item["status"] == "In Transit" else []
-    return render_template("item_detail.html", user=session["user"], item=item,
-                           statuses=db.ITEM_STATUSES, storages=storages)
+    storages = api_client.get_storage_choices(user_id) if item["status"] == "In Transit" else []
+    return render_template(
+        "item_detail.html",
+        item=item,
+        statuses=api_client.ITEM_STATUSES,
+        storages=storages,
+        is_item_owner=is_item_owner,
+        item_types=api_client.get_item_types(user_id) if is_item_owner else [],
+    )
 
 
 @bp.route("/items/<int:item_id>/status", methods=["POST"])
 @login_required
 def item_status(item_id):
+    """Change status (REQ-11). The API writes the item and its movement
+    record in one transaction (REQ-12), so history can't be skipped."""
     new_status = request.form.get("status", "")
-    storage_id = request.form.get("storage_id", type=int)
-    try:
-        changed = db.update_item_status(current_user_id(), item_id, new_status, storage_id)
-    except db.NotFoundOrNotOwned:
-        return redirect(url_for("items.items"))
-    except ValueError as e:
-        flash(str(e), "error")
-    else:
-        if changed:
-            flash(f"Marked as {new_status}.", "success")
+    changed = api_client.change_item_status(current_user_id(), item_id, new_status,
+                                            form_int("storage_id"))
+    if changed:
+        flash(f"Marked as {new_status}.", "success")
     return redirect(url_for("items.item_detail", item_id=item_id))
+
+
+@bp.route("/items/<int:item_id>/edit", methods=["POST"])
+@login_required
+def edit_item(item_id):
+    """Rename or retype an item (owner only). Where it is and its status are
+    sent back unchanged; those only change through /status, which logs them."""
+    user_id = current_user_id()
+    current = api_client.get_item_detail(user_id, item_id)
+    api_client.update_item(user_id, item_id, form_int("item_type_id"),
+                           current["storage_id"], current["status"], form_text("name"))
+    flash("Saved the item.", "success")
+    return redirect(url_for("items.item_detail", item_id=item_id))
+
+
+@bp.route("/items/<int:item_id>/retire", methods=["POST"])
+@login_required
+def retire_item(item_id):
+    api_client.retire_item(current_user_id(), item_id)
+    flash("Retired the item. Its history is kept.", "success")
+    return redirect(url_for("items.items"))

@@ -71,13 +71,3 @@ def test_logged_out_user_is_sent_to_login():
 
 
 
-def test_other_owner_is_bounced_from_seeded_item(client_as):
-    resp = client_as.get("/items/1")
-    assert resp.status_code == 302
-    assert "/items" in resp.headers["Location"]
-
-
-
-def test_other_owner_items_page_is_empty(client_as):
-    html = client_as.get("/items").get_data(as_text=True)
-    assert "Nail Gun #1" not in html

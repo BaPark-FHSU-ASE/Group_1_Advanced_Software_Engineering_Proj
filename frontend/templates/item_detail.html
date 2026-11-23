@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import status_badge, expired_badge %}
 {% block title %}Stock Daddy – {{ item.name }}{% endblock %}
 
 {% block body %}
@@ -10,8 +11,40 @@
             <div>
                 <div class="breadcrumb"><a href="{{ url_for('items.items') }}">Items</a> / {{ item.name }}</div>
                 <h2>{{ item.name }}</h2>
-                <p>{{ item.type }}</p>
+                <p>{{ item.type }} {{ expired_badge(item) }}</p>
             </div>
+            {% if is_item_owner %}
+            <div class="card-actions">
+                {% if item.storage_id %}
+                <details class="inline-form">
+                    <summary class="btn btn-small btn-text">Edit</summary>
+                    <form method="POST" action="{{ url_for('items.edit_item', item_id=item.id) }}" class="inline-form-body">
+                        <div class="form-group">
+                            <label for="edit-name">Name</label>
+                            <input type="text" id="edit-name" name="name" maxlength="100" value="{{ item.name }}" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-type">Item type</label>
+                            <select id="edit-type" name="item_type_id" required>
+                                {% for t in item_types %}
+                                <option value="{{ t.item_type_id }}" {% if t.item_type_id == item.item_type_id %}selected{% endif %}>{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <span class="form-hint">To move it, change its status below; that keeps its history.</span>
+                        <button type="submit" class="btn btn-primary btn-full">Save Item</button>
+                    </form>
+                </details>
+                {% endif %}
+                <details class="inline-form">
+                    <summary class="btn btn-small btn-text btn-danger-text">Retire</summary>
+                    <form method="POST" action="{{ url_for('items.retire_item', item_id=item.id) }}" class="inline-form-body">
+                        <p class="confirm-text">Retire {{ item.name }}? It disappears from lists, counts and plans, but its movement history is kept.</p>
+                        <button type="submit" class="btn btn-danger btn-full">Yes, retire this item</button>
+                    </form>
+                </details>
+            </div>
+            {% endif %}
         </div>
 
         {% include "_flashes.html" %}
@@ -54,15 +87,7 @@
             <div class="detail-grid">
                 <div class="detail-row">
                     <span class="detail-label">Status</span>
-                    <span class="detail-value">
-                        {% if item.status == "In Storage" %}
-                            <span class="badge badge-ok">In Storage</span>
-                        {% elif item.status == "In Use" %}
-                            <span class="badge badge-warning">In Use</span>
-                        {% elif item.status == "In Transit" %}
-                            <span class="badge badge-transit">In Transit</span>
-                        {% endif %}
-                    </span>
+                    <span class="detail-value">{{ status_badge(item.status) }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Building</span>
@@ -80,6 +105,12 @@
                     <span class="detail-label">Date Added</span>
                     <span class="detail-value">{{ item.date_added }}</span>
                 </div>
+                {% if item.expired %}
+                <div class="detail-row">
+                    <span class="detail-label">Service Life</span>
+                    <span class="detail-value">{{ item.days_over }} day{{ 's' if item.days_over != 1 }} past its type's service life (REQ-23)</span>
+                </div>
+                {% endif %}
             </div>
         </div>
 
