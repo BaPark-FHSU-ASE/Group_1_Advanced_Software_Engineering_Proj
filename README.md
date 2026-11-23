@@ -183,8 +183,8 @@ transportation problem. `milp_solver.py` finds the optimal plan using
 SciPy's MILP solver (HiGHS), and `nearest_source.py` is the nearest-site
 baseline it's compared against. `branch_and_bound.py` (our original solver)
 and `enumerate_bruteforce.py` are used in the tests to double check it.
-Run `python -m Optimizer.benchmark` to check the NF-REQ-7/8 timings. The `/redistribute` page calls it
-through `frontend/redistribution.py`.
+Run `python -m Optimizer.benchmark` to check the NF-REQ-7/8 timings. The `/redistribute` page gets
+its plan from the API's `POST /plans`, which runs it (see `frontend/API_CONTRACT.md`).
 
 ---
 
@@ -199,22 +199,25 @@ Each suite runs against a temporary copy of the database, so the committed
 | API | `stock_daddy_api/` | `python tests/run_all_tests.py` |
 | Optimizer | repo root | `python Optimizer/tests/run_all_tests.py` |
 
-`frontend/tests/test_targets.py` and `test_api_launcher.py` include tests
-that start the real API on a free port; they're skipped if the API's
-requirements aren't installed.
+The frontend's page tests use a stand-in for the API (`FakeApi` in
+`frontend/tests/conftest.py`), so they don't need it running.
+`frontend/tests/test_targets.py` and `test_api_launcher.py` also include
+tests that start the real API on a free port; they're skipped if the
+API's requirements aren't installed.
 
 ---
 
 ## Repository layout
 
 ```
-├── frontend/              Flask app: pages, forms, routes
-│   ├── app.py             routes
-│   ├── db.py              database queries used by the pages
-│   ├── api_client.py      calls to the Stock Daddy API
+├── frontend/              Flask app: pages and forms (never opens the database)
+│   ├── app.py             builds the app and registers the blueprints
+│   ├── views/             one blueprint per area (auth, dashboard, buildings, ...)
+│   ├── helpers.py         login_required, form parsing, API error handling
+│   ├── api_client.py      every call to the Stock Daddy API
+│   ├── API_CONTRACT.md    the endpoints the pages use and what they return
 │   ├── api_launcher.py    starts the API when the frontend starts
-│   ├── redistribution.py  database → optimizer → /redistribute page
-│   ├── stockdaddy.db      the database (SQLite, committed, seeded)
+│   ├── stockdaddy.db      the database (SQLite, committed, seeded); the API opens it
 │   ├── templates/         Jinja2 pages; all extend base.html
 │   ├── static/            CSS, JS, favicon
 │   └── tests/

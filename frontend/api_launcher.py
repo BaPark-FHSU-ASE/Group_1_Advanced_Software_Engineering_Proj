@@ -12,7 +12,8 @@ It isn't started if:
 - STOCKDADDY_START_API is set to 0.
 
 If the API can't start (usually because stock_daddy_api's requirements
-aren't installed), the frontend still runs; only Set Target needs the API.
+aren't installed), the frontend still starts, but every page needs the API,
+so each one shows a "couldn't reach the API" page until it's running.
 """
 
 import atexit
@@ -26,9 +27,11 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import api_client
-import db
 
 API_DIR = Path(__file__).resolve().parent.parent / "stock_daddy_api"
+# The database the API should use. The frontend never opens it; it only
+# tells the API where it is.
+DB_PATH = os.environ.get("DB_PATH") or str(Path(__file__).resolve().parent / "stockdaddy.db")
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 STARTUP_SECONDS = 10
 
@@ -79,7 +82,7 @@ def start_api():
         API_PORT=str(port),
         # Same database file as the frontend, as an absolute path so it
         # doesn't depend on the API's working folder.
-        DB_PATH=str(Path(db.DB_PATH).resolve()),
+        DB_PATH=str(Path(DB_PATH).resolve()),
         # No debug reloader for the API: it would start a second process
         # that this one couldn't stop cleanly.
         FLASK_DEBUG="False",
@@ -93,7 +96,7 @@ def start_api():
             stderr=subprocess.PIPE,
         )
     except OSError as e:
-        _warn(f"couldn't start ({e}). Everything except Set Target still works.")
+        _warn(f"couldn't start ({e}). Pages will say the API can't be reached.")
         return None
 
     deadline = time.time() + STARTUP_SECONDS
@@ -101,11 +104,11 @@ def start_api():
         if proc.poll() is not None:
             error = proc.stderr.read().decode(errors="replace").strip().splitlines()
             reason = error[-1] if error else f"exit code {proc.returncode}"
-            _warn(f"didn't start ({reason}). Everything except Set Target still works.")
+            _warn(f"didn't start ({reason}). Pages will say the API can't be reached.")
             return None
         if time.time() > deadline:
             _stop(proc)
-            _warn("didn't start in time. Everything except Set Target still works.")
+            _warn("didn't start in time. Pages will say the API can't be reached.")
             return None
         time.sleep(0.1)
 

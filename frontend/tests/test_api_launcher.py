@@ -61,7 +61,7 @@ def test_api_that_fails_to_start_only_warns(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(api_launcher, "API_DIR", tmp_path)
     monkeypatch.setattr(api_client, "API_URL", f"http://127.0.0.1:{_free_port()}")
     assert api_launcher.start_api() is None
-    assert "Everything except Set Target still works" in capsys.readouterr().err
+    assert "Pages will say the API can't be reached" in capsys.readouterr().err
 
 
 @pytest.mark.skipif(importlib.util.find_spec("dotenv") is None,

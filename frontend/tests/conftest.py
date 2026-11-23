@@ -3,10 +3,10 @@ Points the whole test session at a disposable copy of the database instead
 of the real stockdaddy.db, the same pattern used in
 stock_daddy_api/tests/conftest.py.
 
-db.py reads DB_PATH from an environment variable (falling back to the real
-file), so this only has to set that variable before db.py is imported by
-anything - which is exactly what conftest.py running first, before test
-collection, guarantees.
+The frontend never opens the database itself any more, but the schema
+tests (via tests/schema_db.py) and the end-to-end tests (via the real API)
+do. Both read DB_PATH, so this sets it before anything is imported, which
+conftest.py running first, before test collection, guarantees.
 """
 
 import os
@@ -34,14 +34,15 @@ import pytest
 def fresh_db(monkeypatch, tmp_path):
     """A private copy of the database for one test.
 
-    Tests that write (add rooms, items, ...) use this so they can't change
-    the pinned seed-data counts other tests check, whatever order they run in.
+    Tests that write use this so they can't change the pinned seed-data
+    counts other tests check, whatever order they run in. Pass it to
+    real_api to point the API at it.
     """
-    import db
+    from tests import schema_db
 
     path = tmp_path / "stockdaddy_fresh.db"
     shutil.copyfile(_REAL_DB, path)
-    monkeypatch.setattr(db, "DB_PATH", str(path))
+    monkeypatch.setattr(schema_db, "DB_PATH", str(path))
     return path
 
 
