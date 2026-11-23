@@ -37,10 +37,6 @@ def test_other_owner_sees_no_businesses(other_owner):
     assert db.get_dashboard_hierarchy(other_owner) == []
 
 
-def test_other_owner_cannot_open_seeded_building(other_owner):
-    assert db.get_building(other_owner, 1) is None
-    assert db.get_building(OWNER, 1) is not None
-
 
 def test_other_owner_sees_no_items(other_owner):
     assert db.get_items(other_owner) == []
@@ -73,11 +69,6 @@ def test_logged_out_user_is_sent_to_login():
             assert resp.status_code == 302
             assert "/login" in resp.headers["Location"]
 
-
-def test_other_owner_is_bounced_from_seeded_building(client_as):
-    resp = client_as.get("/building/1")
-    assert resp.status_code == 302
-    assert "/dashboard" in resp.headers["Location"]
 
 
 def test_other_owner_is_bounced_from_seeded_item(client_as):

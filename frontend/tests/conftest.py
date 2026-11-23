@@ -128,4 +128,54 @@ def page_text(resp):
     so tests can look for the sentence a user would read."""
     import html
     import re
-    return re.sub(r"\s+", " ", html.unescape(resp.get_data(as_text=True)))
+    text = re.sub(r"<[^>]+>", " ", resp.get_data(as_text=True))
+    return re.sub(r"\s+", " ", html.unescape(text))
+
+
+# --- The real API, for end-to-end tests -------------------------------------
+
+import importlib.util
+import socket
+import subprocess
+import sys
+import time
+
+API_DIR = Path(__file__).resolve().parent.parent.parent / "stock_daddy_api"
+
+needs_api = pytest.mark.skipif(
+    importlib.util.find_spec("dotenv") is None,
+    reason="stock_daddy_api requirements not installed",
+)
+
+
+def _free_port():
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+@pytest.fixture
+def real_api(fresh_db, monkeypatch):
+    """Start stock_daddy_api on a free port, pointed at this test's database."""
+    port = _free_port()
+    env = dict(os.environ, DB_PATH=str(fresh_db), API_PORT=str(port), FLASK_DEBUG="False")
+    proc = subprocess.Popen([sys.executable, "app.py"], cwd=API_DIR, env=env,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.2).close()
+            break
+        except OSError:
+            if proc.poll() is not None:
+                pytest.fail("the API exited during startup")
+            time.sleep(0.1)
+    else:
+        proc.kill()
+        pytest.fail("the API didn't start in time")
+    monkeypatch.setattr(api_client, "API_URL", f"http://127.0.0.1:{port}")
+    yield port
+    proc.terminate()
+    proc.wait(timeout=10)

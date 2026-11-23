@@ -49,3 +49,10 @@ def test_referer_from_another_site_is_ignored(client):
     resp = _get(client, api_client.ApiError(400, "bad"),
                 headers={"Referer": "https://evil.example/phish"})
     assert resp.location.endswith("/dashboard")
+
+
+def test_dashboard_404_does_not_loop(client, api):
+    api.fail("get_dashboard", 404, "Not Found")
+    resp = client.get("/dashboard")
+    assert resp.status_code == 502
+    assert "doesn't have this page's data yet" in resp.get_data(as_text=True)

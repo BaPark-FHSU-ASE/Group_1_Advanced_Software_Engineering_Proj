@@ -84,6 +84,11 @@ def register_api_error_handlers(app):
     @app.errorhandler(api_client.ApiError)
     def api_error(error):
         if error.status == 404:
+            if request.endpoint == "dashboard.dashboard":
+                # The Dashboard is where 404s send people, so a 404 here
+                # means the API itself is missing the endpoint. Say so
+                # rather than redirecting in a loop.
+                return render_template("api_unavailable.html", missing=True), 502
             return redirect(url_for("dashboard.dashboard"))
         flash(error.message, "error")
         return back()

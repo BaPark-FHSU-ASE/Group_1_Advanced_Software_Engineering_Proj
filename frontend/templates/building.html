@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import retire_button %}
 {% block title %}Stock Daddy – {{ building.name }}{% endblock %}
 
 {% block body %}
@@ -12,17 +13,48 @@
                 <h2>{{ building.name }}</h2>
                 <p>📍 {{ building.address }}</p>
             </div>
-            {# ?add=room (the Dashboard's "+ Room" button) opens this form on arrival #}
-            <details class="inline-form" {% if request.args.get('add') == 'room' %}open{% endif %}>
-                <summary class="btn btn-primary">+ Add Room</summary>
-                <form method="POST" action="{{ url_for('buildings.add_room', building_id=building.id) }}" class="inline-form-body">
-                    <div class="form-group">
-                        <label for="room-name">Room name</label>
-                        <input type="text" id="room-name" name="name" maxlength="100" placeholder="e.g. Main storage" required />
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-full">Save Room</button>
-                </form>
-            </details>
+            <div class="card-actions">
+                <div class="view-toggle">
+                    <a href="{{ url_for('buildings.building', building_id=building.id) }}"
+                       class="btn btn-small {{ 'btn-primary' if view == 'list' else 'btn-secondary' }}">List</a>
+                    <a href="{{ url_for('buildings.building', building_id=building.id, view='floor') }}"
+                       class="btn btn-small {{ 'btn-primary' if view == 'floor' else 'btn-secondary' }}">Floor View</a>
+                </div>
+                {% if is_building_owner %}
+                {# ?add=room (after adding a building) opens this form on arrival #}
+                <details class="inline-form" {% if request.args.get('add') == 'room' %}open{% endif %}>
+                    <summary class="btn btn-primary">+ Add Room</summary>
+                    <form method="POST" action="{{ url_for('buildings.add_room', building_id=building.id) }}" class="inline-form-body">
+                        <div class="form-group">
+                            <label for="room-name">Room name</label>
+                            <input type="text" id="room-name" name="name" maxlength="100" placeholder="e.g. Main storage" required />
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Save Room</button>
+                    </form>
+                </details>
+                <details class="inline-form">
+                    <summary class="btn btn-small btn-text">Edit</summary>
+                    <form method="POST" action="{{ url_for('buildings.edit_building', building_id=building.id) }}" class="inline-form-body">
+                        <input type="hidden" name="business_id" value="{{ building.business_id }}" />
+                        <div class="form-group">
+                            <label for="edit-street">Street address</label>
+                            <input type="text" id="edit-street" name="street_address" maxlength="100" value="{{ building.street_address }}" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-city">City</label>
+                            <input type="text" id="edit-city" name="city" maxlength="100" value="{{ building.city }}" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-state">State</label>
+                            <input type="text" id="edit-state" name="state" maxlength="100" value="{{ building.state }}" required />
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Save Building</button>
+                    </form>
+                </details>
+                {{ retire_button(url_for('buildings.retire_building', building_id=building.id), "this building",
+                                 "Retire its rooms first.") }}
+                {% endif %}
+            </div>
         </div>
 
         {% include "_flashes.html" %}
@@ -32,6 +64,7 @@
             <div class="card-header">
                 <span>⚠️ Stock Levels</span>
                 <div class="card-actions">
+                    {% if is_building_owner %}
                     {# REQ-15: saving a target that already exists updates it #}
                     <details class="inline-form">
                         <summary class="btn btn-small">Set Target</summary>
@@ -41,7 +74,7 @@
                                 <select id="target-item-type" name="item_type_id" required>
                                     <option value="" disabled selected>Choose…</option>
                                     {% for t in item_types %}
-                                    <option value="{{ t.id }}">{{ t.name }}</option>
+                                    <option value="{{ t.item_type_id }}">{{ t.name }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -53,6 +86,7 @@
                             <button type="submit" class="btn btn-primary btn-full">Save Target</button>
                         </form>
                     </details>
+                    {% endif %}
                     <a href="{{ url_for('compliance.compliance') }}" class="btn btn-small btn-secondary">Full Report</a>
                 </div>
             </div>
@@ -83,36 +117,88 @@
                             {% endif %}
                         </td>
                     </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="empty-state">No targets set yet.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
+        {% if view == "floor" %}
+        <!-- Floor view (UI-REQ-1): each room as a box, each storage unit as a tile.
+             Tiles open the storage unit's page. -->
+        <div class="card">
+            <div class="card-header"><span>🗺 Floor View</span></div>
+            <div class="floor-grid">
+                {% for room in building.rooms %}
+                <div class="floor-room">
+                    <div class="floor-room-name">🚪 {{ room.name }}</div>
+                    <div class="floor-tiles">
+                        {% for storage in room.storages %}
+                        <a href="{{ url_for('buildings.storage', storage_id=storage.id) }}"
+                           class="storage-tile {{ 'empty' if not storage.item_count }}">
+                            <span class="storage-tile-count">{{ storage.item_count }}</span>
+                            {{ storage.name }}
+                        </a>
+                        {% else %}
+                        <span class="muted-note">No storage units.</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state">No rooms yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
         <!-- Rooms and storage -->
         {% for room in building.rooms %}
         <div class="card">
             <div class="card-header">
                 <span>🚪 {{ room.name }}</span>
-                <details class="inline-form"
-                    {% if request.args.get('add') == 'storage' and request.args.get('room') == room.id|string %}open{% endif %}>
-                    <summary class="btn btn-small">+ Storage Unit</summary>
-                    <form method="POST" action="{{ url_for('buildings.add_storage', room_id=room.id) }}" class="inline-form-body">
-                        <input type="hidden" name="building_id" value="{{ building.id }}" />
-                        <div class="form-group">
-                            <label for="storage-type-{{ room.id }}">Storage type</label>
-                            <input type="text" id="storage-type-{{ room.id }}" name="storage_type" maxlength="100"
-                                   list="storage-type-suggestions" placeholder="e.g. Locker" required />
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-full">Save Storage Unit</button>
-                    </form>
-                </details>
+                <div class="card-actions">
+                    {% if is_building_owner %}
+                    <details class="inline-form"
+                        {% if request.args.get('add') == 'storage' and request.args.get('room') == room.id|string %}open{% endif %}>
+                        <summary class="btn btn-small">+ Storage Unit</summary>
+                        <form method="POST" action="{{ url_for('buildings.add_storage', room_id=room.id) }}" class="inline-form-body">
+                            <input type="hidden" name="building_id" value="{{ building.id }}" />
+                            <div class="form-group">
+                                <label for="storage-type-{{ room.id }}">Storage type</label>
+                                <input type="text" id="storage-type-{{ room.id }}" name="storage_type" maxlength="100"
+                                       list="storage-type-suggestions" placeholder="e.g. Locker" required />
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Save Storage Unit</button>
+                        </form>
+                    </details>
+                    <details class="inline-form">
+                        <summary class="btn btn-small btn-text">Rename</summary>
+                        <form method="POST" action="{{ url_for('buildings.edit_room', room_id=room.id) }}" class="inline-form-body">
+                            <input type="hidden" name="building_id" value="{{ building.id }}" />
+                            <div class="form-group">
+                                <label for="room-rename-{{ room.id }}">Room name</label>
+                                <input type="text" id="room-rename-{{ room.id }}" name="name" maxlength="100" value="{{ room.name }}" required />
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Save Room</button>
+                        </form>
+                    </details>
+                    <details class="inline-form">
+                        <summary class="btn btn-small btn-text btn-danger-text">Retire</summary>
+                        <form method="POST" action="{{ url_for('buildings.retire_room', room_id=room.id) }}" class="inline-form-body">
+                            <input type="hidden" name="building_id" value="{{ building.id }}" />
+                            <p class="confirm-text">Retire {{ room.name }}? It disappears from lists, counts and plans, but its history is kept.</p>
+                            <p class="form-hint">Retire its storage units first.</p>
+                            <button type="submit" class="btn btn-danger btn-full">Yes, retire this room</button>
+                        </form>
+                    </details>
+                    {% endif %}
+                </div>
             </div>
             <div class="storage-list">
                 {% for storage in room.storages %}
                 <div class="storage-tag">
                     <span class="storage-icon">📦</span>
-                    <span class="storage-name">{{ storage.name }}</span>
-                    <span class="storage-type">{{ storage.type }}</span>
+                    <a href="{{ url_for('buildings.storage', storage_id=storage.id) }}" class="storage-name">{{ storage.name }}</a>
                     <span class="storage-count">{{ storage.item_count }} items</span>
                     <a href="{{ url_for('items.new_items', storage_id=storage.id) }}" class="btn btn-tiny btn-secondary">+ Items</a>
                 </div>
@@ -123,9 +209,10 @@
         </div>
         {% else %}
         <div class="card">
-            <div class="empty-state">No rooms yet. Use "+ Add Room" to create one.</div>
+            <div class="empty-state">No rooms yet.{% if is_building_owner %} Use "+ Add Room" to create one.{% endif %}</div>
         </div>
         {% endfor %}
+        {% endif %}
 
         <!-- Suggestions only: any storage type is allowed (NF-REQ-1) -->
         <datalist id="storage-type-suggestions">

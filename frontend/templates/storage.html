@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, expired_badge %}
+{% block title %}Stock Daddy – {{ storage.type }}{% endblock %}
+
+{# One storage unit and what's in it (UI-REQ-2). #}
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb">
+                    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a> /
+                    <a href="{{ url_for('buildings.building', building_id=storage.building.id) }}">{{ storage.building.name }}</a> /
+                    {{ storage.room.name }}
+                </div>
+                <h2>📦 {{ storage.type }}</h2>
+                <p>{{ storage["items"]|length }} item{{ 's' if storage["items"]|length != 1 }} in {{ storage.room.name }}</p>
+            </div>
+            <div class="card-actions">
+                <a href="{{ url_for('items.new_items', storage_id=storage.id) }}" class="btn btn-primary">+ Add Items Here</a>
+                {% if storage.role == "owner" %}
+                <details class="inline-form">
+                    <summary class="btn btn-small btn-text">Edit</summary>
+                    <form method="POST" action="{{ url_for('buildings.edit_storage', storage_id=storage.id) }}" class="inline-form-body">
+                        <input type="hidden" name="room_id" value="{{ storage.room.id }}" />
+                        <div class="form-group">
+                            <label for="storage-type">Storage type</label>
+                            <input type="text" id="storage-type" name="storage_type" maxlength="100" value="{{ storage.type }}" required />
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Save Storage Unit</button>
+                    </form>
+                </details>
+                <details class="inline-form">
+                    <summary class="btn btn-small btn-text btn-danger-text">Retire</summary>
+                    <form method="POST" action="{{ url_for('buildings.retire_storage', storage_id=storage.id) }}" class="inline-form-body">
+                        <input type="hidden" name="building_id" value="{{ storage.building.id }}" />
+                        <p class="confirm-text">Retire this storage unit? It disappears from lists, counts and plans, but its history is kept.</p>
+                        <p class="form-hint">Move or retire its items first.</p>
+                        <button type="submit" class="btn btn-danger btn-full">Yes, retire this storage unit</button>
+                    </form>
+                </details>
+                {% endif %}
+            </div>
+        </div>
+
+        {% include "_flashes.html" %}
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr><th>Item</th><th>Type</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for item in storage["items"] %}
+                    <tr>
+                        <td><a href="{{ url_for('items.item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+                        <td>{{ item.type }}</td>
+                        <td>{{ status_badge(item.status) }}</td>
+                        <td>{{ expired_badge(item) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="empty-state">Nothing stored here yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}
