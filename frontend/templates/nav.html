@@ -19,19 +19,25 @@
 
     <nav class="sidebar-nav">
         <div class="nav-section-label">Custody</div>
-        <a href="{{ url_for('dashboard') }}"   class="nav-item {% if request.endpoint == 'dashboard'   %}active{% endif %}">🏠 Dashboard</a>
-        <a href="{{ url_for('items') }}"       class="nav-item {% if request.endpoint in ['items','item_detail'] %}active{% endif %}">📦 Items</a>
+        <a href="{{ url_for('dashboard.dashboard') }}"   class="nav-item {% if request.endpoint == 'dashboard.dashboard'   %}active{% endif %}">🏠 Dashboard</a>
+        <a href="{{ url_for('items.items') }}"       class="nav-item {% if request.endpoint in ['items.items','items.item_detail','items.new_items','items.movements'] %}active{% endif %}">📦 Items</a>
+
+        <div class="nav-section-label">Setup</div>
+        <a href="{{ url_for('item_types.item_types') }}" class="nav-item {% if request.endpoint == 'item_types.item_types' %}active{% endif %}">🏷 Item Types</a>
+        <a href="{{ url_for('routes.routes') }}" class="nav-item {% if request.endpoint == 'routes.routes' %}active{% endif %}">🚚 Route Costs</a>
 
         <div class="nav-section-label">Compliance</div>
-        <a href="{{ url_for('compliance') }}"  class="nav-item {% if request.endpoint == 'compliance'  %}active{% endif %}">⚠️ Surplus &amp; Shortage</a>
+        <a href="{{ url_for('compliance.compliance') }}"  class="nav-item {% if request.endpoint == 'compliance.compliance'  %}active{% endif %}">⚠️ Surplus &amp; Shortage</a>
 
+        {% if is_owner %}
         <div class="nav-section-label">Decision Support</div>
-        <a href="{{ url_for('redistribute') }}" class="nav-item {% if request.endpoint == 'redistribute' %}active{% endif %}">🔄 Redistribute</a>
+        <a href="{{ url_for('redistribute.redistribute') }}" class="nav-item {% if request.endpoint == 'redistribute.redistribute' %}active{% endif %}">🔄 Redistribute</a>
+        {% endif %}
     </nav>
 
     <div class="sidebar-footer">
         <span class="sidebar-user">👤 {{ user }}</span>
-        <a href="{{ url_for('logout') }}" class="nav-item logout">Log Out</a>
+        <a href="{{ url_for('auth.logout') }}" class="nav-item logout">Log Out</a>
     </div>
 </div>
 

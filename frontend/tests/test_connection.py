@@ -1,8 +1,8 @@
 """
-Tests for db.get_connection().
+Tests for the test database connection (tests/schema_db.py) and seed data.
 """
 
-import db
+from tests import schema_db as db
 
 
 def test_get_connection_returns_working_connection():

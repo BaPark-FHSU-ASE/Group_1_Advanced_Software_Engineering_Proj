@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import status_badge, expired_badge %}
 {% block title %}Stock Daddy – Items{% endblock %}
 
 {% block body %}
@@ -11,10 +12,20 @@
                 <h2>Items</h2>
                 <p>All individual inventory items across every site</p>
             </div>
-            <a href="{{ url_for('new_items') }}" class="btn btn-primary">+ Add Item</a>
+            <div class="card-actions">
+                <a href="{{ url_for('items.movements') }}" class="btn btn-secondary">🕐 Movement History</a>
+                <a href="{{ url_for('items.new_items') }}" class="btn btn-primary">+ Add Item</a>
+            </div>
         </div>
 
         {% include "_flashes.html" %}
+
+        {% if expired_count %}
+        <div class="alert alert-error">
+            {{ expired_count }} item{{ 's are' if expired_count != 1 else ' is' }} past its item type's service life.
+            <a href="{{ url_for('compliance.compliance') }}#expired">See the list</a>.
+        </div>
+        {% endif %}
 
         <div class="card">
             <table class="table">
@@ -32,22 +43,14 @@
                 <tbody>
                     {% for item in items %}
                     <tr>
-                        <td><a href="{{ url_for('item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
+                        <td><a href="{{ url_for('items.item_detail', item_id=item.id) }}">{{ item.name }}</a></td>
                         <td>{{ item.type }}</td>
-                        <td>
-                            {% if item.status == "In Storage" %}
-                                <span class="badge badge-ok">In Storage</span>
-                            {% elif item.status == "In Use" %}
-                                <span class="badge badge-warning">In Use</span>
-                            {% elif item.status == "In Transit" %}
-                                <span class="badge badge-transit">In Transit</span>
-                            {% endif %}
-                        </td>
+                        <td>{{ status_badge(item.status) }} {{ expired_badge(item) }}</td>
                         <td>{{ item.building }}</td>
                         <td>{{ item.room }}</td>
                         <td>{{ item.storage }}</td>
                         <td>
-                            <a href="{{ url_for('item_detail', item_id=item.id) }}" class="btn btn-small btn-secondary">View</a>
+                            <a href="{{ url_for('items.item_detail', item_id=item.id) }}" class="btn btn-small btn-secondary">View</a>
                         </td>
                     </tr>
                     {% else %}

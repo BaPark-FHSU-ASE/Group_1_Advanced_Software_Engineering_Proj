@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import retire_button %}
 {% block title %}Stock Daddy – Dashboard{% endblock %}
 
 {% block body %}
@@ -13,7 +14,7 @@
             </div>
             <details class="inline-form">
                 <summary class="btn btn-primary">+ Add Business</summary>
-                <form method="POST" action="{{ url_for('add_business') }}" class="inline-form-body">
+                <form method="POST" action="{{ url_for('dashboard.add_business') }}" class="inline-form-body">
                     <div class="form-group">
                         <label for="business-name">Business name</label>
                         <input type="text" id="business-name" name="name" maxlength="100" required />
@@ -29,10 +30,13 @@
         <div class="card">
             <div class="card-header">
                 <span>🏢 <strong>{{ biz.name }}</strong></span>
+                {% if biz.role != "owner" %}<span class="role-tag">{{ biz.role }}</span>{% endif %}
+                {# Owner-only buttons. Hiding them is for tidiness; the API refuses employees anyway. #}
+                {% if biz.role == "owner" %}
                 <div class="card-actions">
                     <details class="inline-form">
                         <summary class="btn btn-small btn-ghost">+ Building</summary>
-                        <form method="POST" action="{{ url_for('add_building', business_id=biz.id) }}" class="inline-form-body">
+                        <form method="POST" action="{{ url_for('dashboard.add_building', business_id=biz.id) }}" class="inline-form-body">
                             <div class="form-group">
                                 <label for="street-{{ biz.id }}">Street address</label>
                                 <input type="text" id="street-{{ biz.id }}" name="street_address" maxlength="100" required />
@@ -50,7 +54,7 @@
                     </details>
                     <details class="inline-form">
                         <summary class="btn btn-small btn-text">Rename</summary>
-                        <form method="POST" action="{{ url_for('rename_business', business_id=biz.id) }}" class="inline-form-body">
+                        <form method="POST" action="{{ url_for('dashboard.rename_business', business_id=biz.id) }}" class="inline-form-body">
                             <div class="form-group">
                                 <label for="rename-{{ biz.id }}">Business name</label>
                                 <input type="text" id="rename-{{ biz.id }}" name="name" maxlength="100" value="{{ biz.name }}" required />
@@ -58,13 +62,17 @@
                             <button type="submit" class="btn btn-primary btn-full">Save Name</button>
                         </form>
                     </details>
+                    <a href="{{ url_for('dashboard.team', business_id=biz.id) }}" class="btn btn-small btn-text">Team</a>
+                    {{ retire_button(url_for('dashboard.retire_business', business_id=biz.id), "this business",
+                                     "Retire its buildings first.") }}
                 </div>
+                {% endif %}
             </div>
 
             <div class="building-grid">
                 {% for building in biz.buildings %}
                 {# The whole card is a link; adding rooms and storage happens on the building page. #}
-                <a href="{{ url_for('building', building_id=building.id) }}" class="building-card building-link">
+                <a href="{{ url_for('buildings.building', building_id=building.id) }}" class="building-card building-link">
                     <div class="building-name">🏗 {{ building.name }}</div>
                     <div class="building-address">📍 {{ building.address }}</div>
                     <div class="building-stats">
@@ -84,7 +92,7 @@
                     </div>
                 </a>
                 {% else %}
-                <span class="muted-note">No buildings yet. Use "+ Building" to add one.</span>
+                <span class="muted-note">No buildings yet.{% if biz.role == "owner" %} Use "+ Building" to add one.{% endif %}</span>
                 {% endfor %}
             </div>
         </div>

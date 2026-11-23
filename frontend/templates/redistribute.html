@@ -11,11 +11,13 @@
                 <h2>Redistribute</h2>
                 <p>Optimal transfer plan to bring all sites back into compliance</p>
             </div>
-            <form method="POST" action="{{ url_for('redistribute') }}">
+            {% if can_run is not defined or can_run %}
+            <form method="POST" action="{{ url_for('redistribute.redistribute') }}">
                 <button type="submit" class="btn btn-primary">
                     ▶ {% if plan.generated %}Run Again{% else %}Run Optimizer{% endif %}
                 </button>
             </form>
+            {% endif %}
         </div>
 
         {% include "_flashes.html" %}
@@ -91,6 +93,35 @@
             {% endfor %}
         </div>
 
+        <!-- What each shortage cost to fill (REQ-21) -->
+        {% if plan.shortage_costs %}
+        <div class="card">
+            <div class="card-header"><span>💲 Cost per Shortage</span></div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Building</th>
+                        <th>Item Type</th>
+                        <th>Short By</th>
+                        <th>Cost to Fill</th>
+                        <th>Per Unit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in plan.shortage_costs %}
+                    <tr>
+                        <td>{{ s.building }}</td>
+                        <td>{{ s.type }}</td>
+                        <td>{{ s.qty }}</td>
+                        <td>${{ "%.2f"|format(s.cost) }}</td>
+                        <td>${{ "%.2f"|format(s.cost_per_unit) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
         <!-- Purchases instead of transfers (REQ-24) -->
         {% if plan.acquisitions %}
         <div class="card">
@@ -116,9 +147,13 @@
         <div class="card">
             <div class="empty-state">
                 <p>🔄 No plan generated yet.</p>
+                {% if can_run is not defined or can_run %}
                 <p>Click <strong>Run Optimizer</strong> to compute the lowest-cost redistribution across all sites.</p>
+                {% else %}
+                <p>Only an owner can run the optimizer.</p>
+                {% endif %}
                 <br>
-                <a href="{{ url_for('compliance') }}" class="btn btn-secondary">View Surplus &amp; Shortage First</a>
+                <a href="{{ url_for('compliance.compliance') }}" class="btn btn-secondary">View Surplus &amp; Shortage First</a>
             </div>
         </div>
         {% endif %}

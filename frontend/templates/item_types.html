@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Item Types{% endblock %}
+
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2>Item Types</h2>
+                <p>The kinds of things you track, what a new one costs, and how long one lasts</p>
+            </div>
+            {% if is_owner %}
+            <details class="inline-form">
+                <summary class="btn btn-primary">+ Add Item Type</summary>
+                <form method="POST" action="{{ url_for('item_types.add_item_type') }}" class="inline-form-body">
+                    {% with t = none %}{% include "_item_type_fields.html" %}{% endwith %}
+                    <button type="submit" class="btn btn-primary btn-full">Save Item Type</button>
+                </form>
+            </details>
+            {% endif %}
+        </div>
+
+        {% include "_flashes.html" %}
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Replacement Cost</th>
+                        <th>Service Life</th>
+                        {% if is_owner %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in item_types %}
+                    <tr>
+                        <td>{{ t.name }}</td>
+                        <td>{{ t.description or "—" }}</td>
+                        <td>{% if t.replacement_cost is not none %}${{ "%.2f"|format(t.replacement_cost) }}{% else %}<span class="muted-note">Can't buy new</span>{% endif %}</td>
+                        <td>{% if t.service_life_days %}{{ t.service_life_days }} days{% else %}<span class="muted-note">No limit</span>{% endif %}</td>
+                        {% if is_owner %}
+                        <td class="table-actions">
+                            <details class="inline-form">
+                                <summary class="btn btn-small btn-text">Edit</summary>
+                                <form method="POST" action="{{ url_for('item_types.edit_item_type', item_type_id=t.item_type_id) }}" class="inline-form-body">
+                                    {% include "_item_type_fields.html" %}
+                                    <button type="submit" class="btn btn-primary btn-full">Save Item Type</button>
+                                </form>
+                            </details>
+                            <details class="inline-form">
+                                <summary class="btn btn-small btn-text btn-danger-text">Delete</summary>
+                                <form method="POST" action="{{ url_for('item_types.delete_item_type', item_type_id=t.item_type_id) }}" class="inline-form-body">
+                                    <p class="confirm-text">Delete {{ t.name }}? This only works while no items, targets or history use it.</p>
+                                    <button type="submit" class="btn btn-danger btn-full">Yes, delete {{ t.name }}</button>
+                                </form>
+                            </details>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="empty-state">No item types yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}

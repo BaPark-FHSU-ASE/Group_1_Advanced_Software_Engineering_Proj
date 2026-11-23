@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Stock Daddy – Team{% endblock %}
+
+{#
+  Who can use a business, and as what. Owners can do everything;
+  employees can view everything, add items and change item status, but
+  can't edit or retire anything, set targets, routes or item types, run
+  the optimizer, or manage the team.
+#}
+{% block body %}
+<div class="app-layout">
+    {% include "nav.html" %}
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb"><a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a> / {{ business.name }}</div>
+                <h2>Team</h2>
+                <p>Who can use {{ business.name }}</p>
+            </div>
+            {% if business.role == "owner" %}
+            <details class="inline-form">
+                <summary class="btn btn-primary">+ Add Person</summary>
+                <form method="POST" action="{{ url_for('dashboard.add_member', business_id=business.id) }}" class="inline-form-body">
+                    <div class="form-group">
+                        <label for="member-email">Their account email</label>
+                        <input type="email" id="member-email" name="email" required />
+                        <span class="form-hint">They need to register first.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="member-role">Role</label>
+                        <select id="member-role" name="role">
+                            <option value="employee" selected>Employee</option>
+                            <option value="owner">Owner</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Add to Team</button>
+                </form>
+            </details>
+            {% endif %}
+        </div>
+
+        {% include "_flashes.html" %}
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        {% if business.role == "owner" %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in members %}
+                    <tr>
+                        <td>
+                            {% if m.first_name %}{{ m.first_name }} {{ m.last_name }}{% else %}Account #{{ m.owner_id }}{% endif %}
+                            {% if m.owner_id == me %}<span class="muted-note">(you)</span>{% endif %}
+                        </td>
+                        <td>{{ m.email or "—" }}</td>
+                        <td><span class="badge {{ 'badge-ok' if m.role == 'owner' else 'badge-transit' }}">{{ m.role|capitalize }}</span></td>
+                        {% if business.role == "owner" %}
+                        <td class="table-actions">
+                            <form method="POST" action="{{ url_for('dashboard.change_member_role', business_id=business.id, member_id=m.business_member_id) }}">
+                                {% if m.role == "owner" %}
+                                <button type="submit" name="role" value="employee" class="btn btn-small btn-text">Make employee</button>
+                                {% else %}
+                                <button type="submit" name="role" value="owner" class="btn btn-small btn-text">Make owner</button>
+                                {% endif %}
+                            </form>
+                            <details class="inline-form">
+                                <summary class="btn btn-small btn-text btn-danger-text">Remove</summary>
+                                <form method="POST" action="{{ url_for('dashboard.remove_member', business_id=business.id, member_id=m.business_member_id) }}" class="inline-form-body">
+                                    <p class="confirm-text">Remove them from {{ business.name }}? Their account stays; they just lose access here.</p>
+                                    <button type="submit" class="btn btn-danger btn-full">Yes, remove</button>
+                                </form>
+                            </details>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}

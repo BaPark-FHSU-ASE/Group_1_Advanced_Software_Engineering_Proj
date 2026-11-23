@@ -1,0 +1,22 @@
+{# Fields shared by the Add and Edit item type forms. `t` is the type being edited, or none. #}
+{% set p = (t.item_type_id|string) if t else "new" %}
+<div class="form-group">
+    <label for="it-name-{{ p }}">Name</label>
+    <input type="text" id="it-name-{{ p }}" name="name" maxlength="100" value="{{ t.name if t else '' }}" required />
+</div>
+<div class="form-group">
+    <label for="it-desc-{{ p }}">Description <span class="muted-note">(optional)</span></label>
+    <input type="text" id="it-desc-{{ p }}" name="description" maxlength="255" value="{{ (t.description or '') if t else '' }}" />
+</div>
+<div class="form-group">
+    <label for="it-cost-{{ p }}">Replacement cost ($)</label>
+    <input type="number" id="it-cost-{{ p }}" name="replacement_cost" min="0.01" step="0.01"
+           value="{{ t.replacement_cost if t and t.replacement_cost is not none else '' }}" />
+    <span class="form-hint">Leave blank if it can't be bought new; the optimizer will only move existing ones.</span>
+</div>
+<div class="form-group">
+    <label for="it-life-{{ p }}">Service life (days)</label>
+    <input type="number" id="it-life-{{ p }}" name="service_life_days" min="1" step="1" inputmode="numeric"
+           value="{{ t.service_life_days if t and t.service_life_days is not none else '' }}" />
+    <span class="form-hint">Items older than this are flagged. Leave blank for no limit.</span>
+</div>

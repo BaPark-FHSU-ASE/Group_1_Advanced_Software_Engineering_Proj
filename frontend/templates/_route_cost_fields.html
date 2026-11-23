@@ -1,0 +1,15 @@
+{# Cost fields shared by the Add and Edit route forms. `r` is the route being edited, or none. #}
+{% set p = (r.route_id|string) if r else "new" %}
+<div class="form-group">
+    <label for="rt-miles-{{ p }}">Distance (miles)</label>
+    <input type="number" id="rt-miles-{{ p }}" name="distance_miles" min="0" step="0.01" value="{{ r.distance_miles if r else '' }}" required />
+</div>
+<div class="form-group">
+    <label for="rt-fixed-{{ p }}">Dispatch cost ($ per trip)</label>
+    <input type="number" id="rt-fixed-{{ p }}" name="fixed_dispatch_cost" min="0.01" step="0.01" value="{{ r.fixed_dispatch_cost if r else '' }}" required />
+    <span class="form-hint">Charged once per trip, however much it carries.</span>
+</div>
+<div class="form-group">
+    <label for="rt-unit-{{ p }}">Cost per item per mile ($)</label>
+    <input type="number" id="rt-unit-{{ p }}" name="cost_per_unit_mile" min="0" step="0.0001" value="{{ r.cost_per_unit_mile if r else '' }}" required />
+</div>

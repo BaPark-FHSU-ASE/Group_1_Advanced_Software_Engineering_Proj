@@ -11,7 +11,7 @@ import sqlite3
 
 import pytest
 
-import db
+from tests import schema_db as db
 
 OWNER = 1
 

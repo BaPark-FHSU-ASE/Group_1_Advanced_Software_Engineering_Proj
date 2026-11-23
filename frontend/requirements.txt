@@ -1,6 +1,8 @@
 flask>=3.0.0
 pytest>=8.0.0
-# Needed by the redistribution optimizer (Optimizer/branch_and_bound.py),
-# which the /redistribute page now calls. Versions match Optimizer/requirements.txt.
+# The frontend itself no longer runs the optimizer (it calls the API's
+# POST /plans). These stay here only so a fresh install still gets them:
+# Optimizer/ and the API's /plans endpoint need them. Move them to
+# stock_daddy_api/requirements.txt when /plans is built.
 numpy>=2.0
 scipy>=1.14
