@@ -4,6 +4,7 @@
     dashboard     the Dashboard and its business buttons
     buildings     a building's page, its rooms, storage units and targets
     items         the item list, adding items, an item's page
+    item_types    item types (REQ-9)
     compliance    Surplus & Shortage
     redistribute  the optimizer page
 
@@ -14,6 +15,7 @@ from views.auth import bp as auth_bp
 from views.buildings import bp as buildings_bp
 from views.compliance import bp as compliance_bp
 from views.dashboard import bp as dashboard_bp
+from views.item_types import bp as item_types_bp
 from views.items import bp as items_bp
 from views.redistribute import bp as redistribute_bp
 
@@ -22,6 +24,7 @@ ALL_BLUEPRINTS = (
     dashboard_bp,
     buildings_bp,
     items_bp,
+    item_types_bp,
     compliance_bp,
     redistribute_bp,
 )
