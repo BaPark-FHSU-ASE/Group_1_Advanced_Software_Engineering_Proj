@@ -150,3 +150,54 @@ def test_you_cannot_delete_a_teammate_or_a_stranger(client, fresh_db):
     stranger = add_person(fresh_db)
     assert_error(client.delete(f"/owners/{DALE}?user_id={stranger}"), 404, "Owner not found")
     assert_error(client.delete(f"/owners/{DALE}"), 400, "user_id is required")
+    
+DALE_LOGIN = {"email": "dale@prairieroofing.example", "password": "roofing123"}
+JESS_LOGIN = {"email": "crew@prairieroofing.example", "password": "employee123"}
+BAD_LOGIN = "Invalid email or password."
+
+
+def test_login_returns_the_person_and_their_businesses(client):
+    response = client.post("/auth/login", json=DALE_LOGIN)
+    assert response.status_code == 200
+    body = response.get_json()
+    assert set(body) == {"owner_id", "first_name", "last_name", "email", "memberships"}
+    assert body["owner_id"] == DALE
+    assert body["memberships"] == [{"business_id": 1, "role": "owner"}]
+
+    jess = client.post("/auth/login", json=JESS_LOGIN).get_json()
+    assert jess["owner_id"] == JESS
+    assert jess["memberships"] == [{"business_id": 1, "role": "employee"}]
+
+
+def test_login_ignores_capitals_and_spaces_in_the_email_only(client):
+    assert client.post("/auth/login", json=dict(DALE_LOGIN, email="  DALE@PrairieRoofing.example ")).status_code == 200
+    assert_error(client.post("/auth/login", json=dict(DALE_LOGIN, password="ROOFING123")), 401, BAD_LOGIN)
+    assert_error(client.post("/auth/login", json=dict(DALE_LOGIN, password=" roofing123")), 401, BAD_LOGIN)
+
+
+def test_login_gives_the_same_401_for_a_wrong_password_and_an_unknown_email(client):
+    wrong_password = client.post("/auth/login", json=dict(DALE_LOGIN, password="nope-nope"))
+    unknown_email = client.post("/auth/login", json={"email": "nobody@example.com", "password": "roofing123"})
+    assert wrong_password.status_code == unknown_email.status_code == 401
+    assert wrong_password.get_json() == unknown_email.get_json() == {"error": BAD_LOGIN}
+
+
+def test_login_works_for_an_account_made_with_register(client):
+    person = dict(NEW_PERSON, password="  spaced out  ")
+    client.post("/auth/register", json=person)
+    ok = client.post("/auth/login", json={"email": "new@example.com", "password": "  spaced out  "})
+    assert ok.status_code == 200
+    assert ok.get_json()["memberships"] == []
+    assert_error(client.post("/auth/login", json={"email": "new@example.com", "password": "spaced out"}), 401, BAD_LOGIN)
+
+
+def test_login_says_what_is_missing_in_plain_sentences(client):
+    assert_error(client.post("/auth/login", json={}), 400, "Email is required. Password is required.")
+    assert_error(client.post("/auth/login", json={"email": "   ", "password": "x"}), 400, "Email is required.")
+    assert_error(client.post("/auth/login", json={"email": "a@b.co", "password": ""}), 400, "Password is required.")
+    assert_error(client.post("/auth/login", json={"email": 5, "password": 7}), 400, "Email is required. Password is required.")
+
+
+def test_login_needs_a_json_object(client):
+    assert_error(client.post("/auth/login", data="hello"), 400, "Request body must be a JSON object")
+    assert_error(client.post("/auth/login", json=["a"]), 400, "Request body must be a JSON object")    

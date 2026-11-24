@@ -1,7 +1,7 @@
 import re
 
 from flask import Blueprint, jsonify, request
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from app.Validation_Helper import ValidationError, parse_body, require_query_int
 from app.access import AccessError
 from app.repositories import business_member_repository, owner_repository
@@ -13,6 +13,10 @@ MAX_NAME_LENGTH = 100
 MAX_EMAIL_LENGTH = 255
 # Not a full email check, just "something@something.something" with no spaces.
 _EMAIL_LOOKS_RIGHT = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+BAD_LOGIN = "Invalid email or password."
+
+_DUMMY_HASH = generate_password_hash("not a real password")
 
 
 def _require_can_see(user_id, owner_id):
@@ -92,6 +96,33 @@ def register():
         password_hash=generate_password_hash(password),
     )
     return jsonify(_account_view(owner)), 201
+
+
+@owner_bp.route("/auth/login", methods=["POST"])
+def login():
+    # Email is matched without regard to capitals and surrounding spaces; the
+    # password is matched exactly as sent.
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValidationError("Request body must be a JSON object")
+
+    email = data.get("email")
+    email = email.strip() if isinstance(email, str) else ""
+    password = data.get("password")
+    problems = []
+    if not email:
+        problems.append("Email is required.")
+    if not isinstance(password, str) or password == "":
+        problems.append("Password is required.")
+    if problems:
+        raise ValidationError(" ".join(problems))
+
+    owner = owner_repository.get_by_email(email)
+    stored_hash = owner.password_hash if owner is not None else _DUMMY_HASH
+    password_ok = check_password_hash(stored_hash, password)
+    if owner is None or not password_ok:
+        raise ValidationError(BAD_LOGIN, 401)
+    return jsonify(_account_view(owner)), 200
 
 
 @owner_bp.route("/owners/<int:owner_id>", methods=["GET"])
