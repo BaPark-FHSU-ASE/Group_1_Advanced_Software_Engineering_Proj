@@ -64,6 +64,22 @@ def has_role_anywhere(owner_id, role=None):
 
     return row is not None
 
+
+def get_memberships(owner_id):
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT bm.business_id, bm.role FROM business_member bm "
+            "JOIN business b ON b.business_id = bm.business_id "
+            "WHERE bm.owner_id = ? AND b.retired IS NULL "
+            "ORDER BY bm.business_id",
+            (owner_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return [{"business_id": row["business_id"], "role": row["role"]} for row in rows]
+
 def share_a_business(owner_id, other_id):
 
     conn = get_connection()

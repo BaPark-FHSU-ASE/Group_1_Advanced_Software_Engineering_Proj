@@ -59,7 +59,7 @@ def test_wrong_type_is_400(client):
     assert_error(client.post("/buildings", json=body), 400, "business_id must be a whole number")
  
 def test_every_create_route_rejects_an_empty_body(client):
-    for path in ("/owners", "/businesses", "/buildings", "/rooms", "/storages",
+    for path in ("/auth/register", "/businesses", "/buildings", "/rooms", "/storages",
                  "/item_types", "/items"):
         response = client.post(path, json={})
         assert response.status_code == 400, path
@@ -77,9 +77,9 @@ def test_unknown_parent_is_409_and_next_write_works(client):
     assert_next_write_works(client)
  
 def test_duplicate_email_is_409_and_next_write_works(client):
-    owner = {"first_name": "A", "last_name": "B", "email": "dupe@example.com", "password_hash": "h"}
-    assert client.post("/owners", json=owner).status_code == 201
-    assert_error(client.post("/owners", json=owner), 409, "email already exists")
+    # Jess changing her email to Dale's runs into the UNIQUE rule on owners.email.
+    body = {"user_id": 2, "first_name": "Jess", "last_name": "Crew", "email": "dale@prairieroofing.example"}
+    assert_error(client.put("/owners/2", json=body), 409, "email already exists")
     assert_next_write_works(client)
  
 def test_disallowed_status_is_400_and_next_write_works(client):

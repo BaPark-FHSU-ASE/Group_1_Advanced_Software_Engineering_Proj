@@ -158,3 +158,18 @@ def test_share_a_business(fresh_db):
     assert members.share_a_business(2, 1) is True
     assert members.share_a_business(1, 999999) is False
     assert members.share_a_business(999999, 1) is False    
+    
+
+def test_get_memberships_lists_each_business_and_role(fresh_db):
+    assert members.get_memberships(1) == [{"business_id": 1, "role": "owner"}]
+    assert members.get_memberships(2) == [{"business_id": 1, "role": "employee"}]
+    assert members.get_memberships(_add_owner(fresh_db)) == []
+
+
+def test_get_memberships_skips_retired_businesses(fresh_db):
+    second = _add_business(fresh_db, 1)
+    members.add(second, 1, "owner")
+    assert [m["business_id"] for m in members.get_memberships(1)] == [1, second]
+
+    _insert(fresh_db, "UPDATE business SET retired = CURRENT_TIMESTAMP WHERE business_id = ?", (second,))
+    assert [m["business_id"] for m in members.get_memberships(1)] == [1]    
