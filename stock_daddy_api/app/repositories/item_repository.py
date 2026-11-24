@@ -54,6 +54,40 @@ def create(item_type_id, storage_id, item_name, item_status="In Storage"):
     return Item.from_row(row)
 
 
+def create_many(item_type_id, storage_id, item_names):
+    conn = get_connection()
+    try:
+        item_ids = []
+        for item_name in item_names:
+            cursor = conn.execute(
+                "INSERT INTO item (item_type_id, storage_id, item_name, item_status) "
+                "VALUES (?, ?, ?, 'In Storage')",
+                (item_type_id, storage_id, item_name),
+            )
+            conn.execute(
+                "INSERT INTO item_movement (item_id, from_storage_id, to_storage_id) "
+                "VALUES (?, NULL, ?)",
+                (cursor.lastrowid, storage_id),
+            )
+            item_ids.append(cursor.lastrowid)
+        conn.commit()
+        return item_ids
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def count_of_type(item_type_id):
+    conn = get_connection()
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM item WHERE item_type_id = ?", (item_type_id,)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
 def get_by_id(item_id):
     conn = get_connection()
     row = conn.execute(

@@ -60,7 +60,7 @@ def test_wrong_type_is_400(client):
  
 def test_every_create_route_rejects_an_empty_body(client):
     for path in ("/auth/register", "/businesses", "/buildings", "/rooms", "/storages",
-                 "/item_types", "/items"):
+                 "/item_types", "/items", "/items/bulk"):
         response = client.post(path, json={})
         assert response.status_code == 400, path
         assert "is required" in response.get_json()["error"], path

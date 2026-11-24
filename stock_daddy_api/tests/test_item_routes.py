@@ -243,3 +243,134 @@ def test_employee_and_stranger_cannot_delete_an_item(client, fresh_db):
     assert_error(client.delete(f"/items/{item_id}?user_id={stranger}"), 404, "Item not found")
     assert_error(client.delete(f"/items/{item_id}"), 400, "user_id is required")
     assert client.get(f"/items/{item_id}?user_id={DALE}").status_code == 200
+    
+    
+
+
+def _bulk(client, **changes):
+    body = {"user_id": DALE, "storage_id": 1, "item_type_id": 1, "quantity": 1}
+    body.update(changes)
+    return client.post("/items/bulk", json=body)
+
+
+def _item_count(path):
+    return one_value(path, "SELECT COUNT(*) FROM item")
+
+
+def _names(path, item_ids):
+    return [one_value(path, "SELECT item_name FROM item WHERE item_id = ?", (i,)) for i in item_ids]
+
+
+def test_bulk_add_makes_the_items_and_one_movement_row_each(client, fresh_db):
+    items_before = _item_count(fresh_db)
+    movements_before = one_value(fresh_db, "SELECT COUNT(*) FROM item_movement")
+
+    response = _bulk(client, quantity=3)
+    assert response.status_code == 201
+    item_ids = response.get_json()["item_ids"]
+    assert len(item_ids) == len(set(item_ids)) == 3
+
+    assert _item_count(fresh_db) == items_before + 3
+    assert one_value(fresh_db, "SELECT COUNT(*) FROM item_movement") == movements_before + 3
+    for item_id in item_ids:
+        item = client.get(f"/items/{item_id}?user_id={DALE}").get_json()
+        assert (item["item_type_id"], item["storage_id"], item["item_status"]) == (1, 1, "In Storage")
+        movement = one_value(
+            fresh_db,
+            "SELECT COUNT(*) FROM item_movement WHERE item_id = ? "
+            "AND from_storage_id IS NULL AND to_storage_id = 1",
+            (item_id,),
+        )
+        assert movement == 1
+
+
+def test_bulk_add_names_items_after_their_type_and_keeps_counting(client, fresh_db):
+    already = one_value(fresh_db, "SELECT COUNT(*) FROM item WHERE item_type_id = 1")
+    first = _bulk(client, quantity=2).get_json()["item_ids"]
+    second = _bulk(client, quantity=1).get_json()["item_ids"]
+    assert _names(fresh_db, first) == [f"Nail Gun #{already + 1}", f"Nail Gun #{already + 2}"]
+    assert _names(fresh_db, second) == [f"Nail Gun #{already + 3}"]
+
+
+def test_bulk_add_uses_a_typed_name_as_it_is_for_one_item_and_numbers_it_for_several(client, fresh_db):
+    one = _bulk(client, item_name="  Big Red  ").get_json()["item_ids"]
+    several = _bulk(client, item_name="Big Red", quantity=3).get_json()["item_ids"]
+    assert _names(fresh_db, one) == ["Big Red"]
+    assert _names(fresh_db, several) == ["Big Red #1", "Big Red #2", "Big Red #3"]
+
+
+def test_bulk_add_treats_a_blank_name_like_no_name(client, fresh_db):
+    already = one_value(fresh_db, "SELECT COUNT(*) FROM item WHERE item_type_id = 1")
+    ids = _bulk(client, item_name="   ").get_json()["item_ids"]
+    assert _names(fresh_db, ids) == [f"Nail Gun #{already + 1}"]
+
+
+def test_bulk_add_counts_retired_items_when_numbering(client, fresh_db):
+    run_sql(fresh_db, "UPDATE item SET retired = CURRENT_TIMESTAMP WHERE item_type_id = 1")
+    already = one_value(fresh_db, "SELECT COUNT(*) FROM item WHERE item_type_id = 1")
+    ids = _bulk(client).get_json()["item_ids"]
+    assert _names(fresh_db, ids) == [f"Nail Gun #{already + 1}"]
+
+
+def test_an_employee_can_add_items_too(client):
+    assert _bulk(client, user_id=JESS, quantity=2).status_code == 201
+
+
+def test_bulk_add_shows_up_in_the_item_list(client):
+    before = len(client.get(f"/items?user_id={DALE}").get_json())
+    ids = _bulk(client, quantity=4).get_json()["item_ids"]
+    listed = ids_of(client.get(f"/items?user_id={DALE}"), "item_id")
+    assert len(listed) == before + 4
+    assert set(ids) <= set(listed)
+
+
+def test_bulk_add_accepts_exactly_the_limits(client, fresh_db):
+    before = _item_count(fresh_db)
+    assert _bulk(client, quantity=1).status_code == 201
+    assert _bulk(client, quantity=100).status_code == 201
+    assert _item_count(fresh_db) == before + 101
+
+
+def test_bulk_add_refuses_a_quantity_outside_one_to_a_hundred(client, fresh_db):
+    before = _item_count(fresh_db)
+    for quantity in (0, -1, 101, 5000):
+        assert_error(_bulk(client, quantity=quantity), 400, "Quantity must be between 1 and 100.")
+    assert_error(_bulk(client, quantity="3"), 400, "quantity must be a whole number")
+    assert_error(_bulk(client, quantity=2.5), 400, "quantity must be a whole number")
+    assert_error(client.post("/items/bulk", json={"user_id": DALE, "storage_id": 1, "item_type_id": 1}),
+                 400, "quantity is required")
+    assert _item_count(fresh_db) == before
+
+
+def test_bulk_add_refuses_a_name_that_would_be_too_long(client, fresh_db):
+    before = _item_count(fresh_db)
+    assert _bulk(client, item_name="x" * 100).status_code == 201
+    assert_error(_bulk(client, item_name="x" * 101), 400, "Item name must be 100 characters or fewer.")
+    # 98 characters is fine alone, but " #10" makes the tenth name 102 long.
+    assert_error(_bulk(client, item_name="x" * 98, quantity=10), 400, "Item name must be 100 characters or fewer.")
+    assert _item_count(fresh_db) == before + 1
+
+
+def test_bulk_add_checks_who_you_are_and_what_exists(client, fresh_db):
+    stranger = add_person(fresh_db)
+    before = _item_count(fresh_db)
+    assert_error(_bulk(client, user_id=stranger), 404, "Storage not found")
+    assert_error(_bulk(client, storage_id=999999), 404, "Storage not found")
+    assert_error(_bulk(client, item_type_id=999999), 404, "Item type not found")
+    assert _item_count(fresh_db) == before
+
+
+def test_bulk_add_cannot_use_another_business_storage_unit(client, fresh_db):
+    person, their_storage = _other_business_with_a_storage_unit(client, fresh_db)
+    before = _item_count(fresh_db)
+    assert_error(_bulk(client, storage_id=their_storage), 404, "Storage not found")
+    assert _bulk(client, user_id=person, storage_id=their_storage).status_code == 201
+    assert _item_count(fresh_db) == before + 1
+
+
+def test_bulk_add_refuses_a_retired_storage_unit(client, fresh_db):
+    storage_id = run_sql(fresh_db, "INSERT INTO storage (room_id, storage_type) VALUES (1, 'Closing Shelf')")
+    retire(client, "storages", storage_id)
+    before = _item_count(fresh_db)
+    assert_error(_bulk(client, storage_id=storage_id), 409, "That storage unit is retired")
+    assert _item_count(fresh_db) == before    

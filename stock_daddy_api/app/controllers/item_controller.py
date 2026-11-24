@@ -1,13 +1,23 @@
 from flask import Blueprint, jsonify
-from app.Validation_Helper import parse_body, query_flag, require_query_int
-from app.access import require_record_role
+from app.Validation_Helper import ValidationError, parse_body, query_flag, require_query_int
+from app.access import AccessError, require_record_role
 from app.retire_helper import require_not_retired, retire_record
-from app.repositories import item_repository
+from app.repositories import item_repository, item_type_repository
 
 item_bp = Blueprint("item_bp", __name__)
 
+MAX_ITEMS_PER_ADD = 100
+MAX_ITEM_NAME_LENGTH = 100
 
-item_bp = Blueprint("item_bp", __name__)
+
+def _names_for_new_items(item_type, quantity, typed_name):
+    if typed_name:
+        if quantity == 1:
+            return [typed_name]
+        return [f"{typed_name} #{number}" for number in range(1, quantity + 1)]
+    already = item_repository.count_of_type(item_type.item_type_id)
+    return [f"{item_type.name} #{already + number}" for number in range(1, quantity + 1)]
+
 
 @item_bp.route("/items", methods=["GET"])
 def get_items():
@@ -16,6 +26,7 @@ def get_items():
         include_retired=query_flag("include_retired"), user_id=user_id
     )
     return jsonify([item.to_dict() for item in items])
+
 
 @item_bp.route("/items", methods=["POST"])
 def create_item():
@@ -33,6 +44,27 @@ def create_item():
     )
     return jsonify(item.to_dict()), 201
 
+@item_bp.route("/items/bulk", methods=["POST"])
+def create_items_in_bulk():
+    data = parse_body(
+        required={"user_id": int, "storage_id": int, "item_type_id": int, "quantity": int},
+        optional={"item_name": str},
+    )
+    if not 1 <= data["quantity"] <= MAX_ITEMS_PER_ADD:
+        raise ValidationError(f"Quantity must be between 1 and {MAX_ITEMS_PER_ADD}.")
+
+    require_record_role("storage", data["storage_id"], data["user_id"])
+    require_not_retired("storage", data["storage_id"])
+    item_type = item_type_repository.get_by_id(data["item_type_id"])
+    if item_type is None:
+        raise AccessError("Item type not found", 404)
+
+    names = _names_for_new_items(item_type, data["quantity"], data.get("item_name") or "")
+    if any(len(name) > MAX_ITEM_NAME_LENGTH for name in names):
+        raise ValidationError(f"Item name must be {MAX_ITEM_NAME_LENGTH} characters or fewer.")
+
+    item_ids = item_repository.create_many(data["item_type_id"], data["storage_id"], names)
+    return jsonify({"item_ids": item_ids}), 201
 
 @item_bp.route("/items/<int:item_id>", methods=["GET"])
 def get_item(item_id):
