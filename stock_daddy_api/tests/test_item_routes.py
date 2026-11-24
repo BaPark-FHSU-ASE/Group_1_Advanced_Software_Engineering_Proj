@@ -1,4 +1,5 @@
 import shutil
+import sqlite3
 
 import pytest
 
@@ -91,7 +92,6 @@ def test_a_new_item_needs_a_storage_unit(client):
     response = client.post("/items", json={"user_id": DALE, "item_type_id": 1})
     assert_error(response, 400, "storage_id is required")
 
-# ---- who can see and change items -------------------------------------------
 
 def _other_business_with_a_storage_unit(client, fresh_db):
     """A second business, owned by a new person, with one storage unit. -> (person, storage_id)"""
@@ -243,8 +243,7 @@ def test_employee_and_stranger_cannot_delete_an_item(client, fresh_db):
     assert_error(client.delete(f"/items/{item_id}?user_id={stranger}"), 404, "Item not found")
     assert_error(client.delete(f"/items/{item_id}"), 400, "user_id is required")
     assert client.get(f"/items/{item_id}?user_id={DALE}").status_code == 200
-    
-    
+
 
 
 def _bulk(client, **changes):
@@ -373,4 +372,144 @@ def test_bulk_add_refuses_a_retired_storage_unit(client, fresh_db):
     retire(client, "storages", storage_id)
     before = _item_count(fresh_db)
     assert_error(_bulk(client, storage_id=storage_id), 409, "That storage unit is retired")
-    assert _item_count(fresh_db) == before    
+    assert _item_count(fresh_db) == before
+
+
+
+
+def _set_status(client, item_id, status, user_id=DALE, **extra):
+    body = {"user_id": user_id, "status": status}
+    body.update(extra)
+    return client.post(f"/items/{item_id}/status", json=body)
+
+
+def _item_row(path, item_id):
+    conn = sqlite3.connect(path)
+    row = conn.execute("SELECT item_status, storage_id FROM item WHERE item_id = ?", (item_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def _movements(path, item_id):
+    conn = sqlite3.connect(path)
+    rows = conn.execute(
+        "SELECT from_storage_id, to_storage_id, from_status, to_status FROM item_movement "
+        "WHERE item_id = ? ORDER BY item_movement_id", (item_id,)
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def test_in_storage_and_in_use_swap_in_place_and_log_only_the_status(client, fresh_db):
+    before = _movements(fresh_db, 1)
+
+    response = _set_status(client, 1, "In Use")
+    assert response.status_code == 200
+    assert response.get_json() == {"changed": True}
+    assert _item_row(fresh_db, 1) == ("In Use", 1)
+
+    assert _set_status(client, 1, "In Storage").get_json() == {"changed": True}
+    assert _item_row(fresh_db, 1) == ("In Storage", 1)
+    assert _movements(fresh_db, 1)[len(before):] == [
+        (None, None, "In Storage", "In Use"),
+        (None, None, "In Use", "In Storage"),
+    ]
+
+
+def test_an_employee_can_change_status(client, fresh_db):
+    assert _set_status(client, 1, "In Use", user_id=JESS).get_json() == {"changed": True}
+    assert _item_row(fresh_db, 1)[0] == "In Use"
+
+
+def test_going_in_transit_empties_the_storage_unit_and_logs_where_it_left_from(client, fresh_db):
+    response = _set_status(client, 1, "In Transit")
+    assert response.get_json() == {"changed": True}
+    assert _item_row(fresh_db, 1) == ("In Transit", None)
+    assert _movements(fresh_db, 1)[-1] == (1, None, "In Storage", "In Transit")
+
+
+def test_an_item_in_transit_stays_on_its_businesses_lists(client, fresh_db):
+    _set_status(client, 1, "In Transit")
+    assert 1 in ids_of(client.get(f"/items?user_id={DALE}"), "item_id")
+    assert client.get(f"/items/1?user_id={JESS}").status_code == 200
+    stranger = add_person(fresh_db)
+    assert 1 not in ids_of(client.get(f"/items?user_id={stranger}"), "item_id")
+
+
+def test_arriving_needs_a_storage_unit_and_puts_the_item_there(client, fresh_db):
+    before = _movements(fresh_db, 92)
+    for extra in ({}, {"storage_id": 0}):
+        assert_error(_set_status(client, 92, "In Storage", **extra), 400, "Choose where the item arrived.")
+    assert _item_row(fresh_db, 92) == ("In Transit", None)
+    assert _movements(fresh_db, 92) == before
+
+    response = _set_status(client, 92, "In Use", storage_id=2)
+    assert response.get_json() == {"changed": True}
+    assert _item_row(fresh_db, 92) == ("In Use", 2)
+    assert _movements(fresh_db, 92)[-1] == (None, 2, "In Transit", "In Use")
+
+
+def test_the_whole_trip_out_and_back(client, fresh_db):
+    _set_status(client, 1, "In Transit")
+    _set_status(client, 1, "In Storage", storage_id=3)
+    assert _item_row(fresh_db, 1) == ("In Storage", 3)
+    assert _movements(fresh_db, 1)[-2:] == [
+        (1, None, "In Storage", "In Transit"),
+        (None, 3, "In Transit", "In Storage"),
+    ]
+
+
+def test_asking_for_the_status_it_already_has_changes_nothing(client, fresh_db):
+    before = _movements(fresh_db, 1)
+    response = _set_status(client, 1, "In Storage")
+    assert response.status_code == 200
+    assert response.get_json() == {"changed": False}
+    assert _movements(fresh_db, 1) == before
+    # An item already in transit doesn't need a destination to stay there.
+    assert _set_status(client, 92, "In Transit").get_json() == {"changed": False}
+
+
+def test_a_storage_unit_is_ignored_unless_the_item_is_arriving(client, fresh_db):
+    _set_status(client, 1, "In Use", storage_id=2)
+    assert _item_row(fresh_db, 1) == ("In Use", 1)
+
+
+def test_status_must_be_one_of_the_three(client, fresh_db):
+    sentence = "Status must be In Storage, In Use or In Transit."
+    for status in ("Broken", "in use", ""):
+        assert_error(_set_status(client, 1, status), 400, sentence)
+    assert_error(client.post("/items/1/status", json={"user_id": DALE}), 400, sentence)
+    assert _item_row(fresh_db, 1) == ("In Storage", 1)
+
+
+def test_status_needs_a_json_object_and_a_user(client):
+    assert_error(client.post("/items/1/status", data="hello"), 400, "Request body must be a JSON object")
+    assert_error(client.post("/items/1/status", json={"status": "In Use"}), 400, "user_id is required")
+
+
+def test_a_stranger_or_a_missing_item_is_404_and_nothing_changes(client, fresh_db):
+    stranger = add_person(fresh_db)
+    before = _movements(fresh_db, 1)
+    assert_error(_set_status(client, 1, "In Use", user_id=stranger), 404, "Item not found")
+    assert_error(_set_status(client, 999999, "In Use"), 404, "Item not found")
+    assert _item_row(fresh_db, 1) == ("In Storage", 1)
+    assert _movements(fresh_db, 1) == before
+
+
+def test_arriving_needs_access_to_the_storage_unit_and_it_cannot_be_retired(client, fresh_db):
+    _, their_storage = _other_business_with_a_storage_unit(client, fresh_db)
+    assert_error(_set_status(client, 92, "In Storage", storage_id=their_storage), 404, "Storage not found")
+    assert_error(_set_status(client, 92, "In Storage", storage_id=999999), 404, "Storage not found")
+
+    closing = run_sql(fresh_db, "INSERT INTO storage (room_id, storage_type) VALUES (1, 'Closing Shelf')")
+    retire(client, "storages", closing)
+    assert_error(_set_status(client, 92, "In Storage", storage_id=closing), 409, "That storage unit is retired")
+    assert _item_row(fresh_db, 92) == ("In Transit", None)
+
+
+def test_a_retired_item_cannot_change_status(client, fresh_db):
+    retire(client, "items", 1)
+    before = _movements(fresh_db, 1)
+    assert_error(_set_status(client, 1, "In Use"), 409, "That item is retired")
+    assert _item_row(fresh_db, 1) == ("In Storage", 1)
+    assert _movements(fresh_db, 1) == before

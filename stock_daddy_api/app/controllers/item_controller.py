@@ -8,6 +8,7 @@ item_bp = Blueprint("item_bp", __name__)
 
 MAX_ITEMS_PER_ADD = 100
 MAX_ITEM_NAME_LENGTH = 100
+ITEM_STATUSES = ("In Storage", "In Use", "In Transit")
 
 
 def _names_for_new_items(item_type, quantity, typed_name):
@@ -27,7 +28,6 @@ def get_items():
     )
     return jsonify([item.to_dict() for item in items])
 
-
 @item_bp.route("/items", methods=["POST"])
 def create_item():
     data = parse_body(
@@ -44,8 +44,10 @@ def create_item():
     )
     return jsonify(item.to_dict()), 201
 
+
 @item_bp.route("/items/bulk", methods=["POST"])
 def create_items_in_bulk():
+
     data = parse_body(
         required={"user_id": int, "storage_id": int, "item_type_id": int, "quantity": int},
         optional={"item_name": str},
@@ -66,6 +68,7 @@ def create_items_in_bulk():
     item_ids = item_repository.create_many(data["item_type_id"], data["storage_id"], names)
     return jsonify({"item_ids": item_ids}), 201
 
+
 @item_bp.route("/items/<int:item_id>", methods=["GET"])
 def get_item(item_id):
     require_record_role("item", item_id, require_query_int("user_id"))
@@ -81,10 +84,10 @@ def update_item(item_id):
     require_record_role("item", item_id, data["user_id"])
     current = item_repository.get_by_id(item_id)
     if data["item_type_id"] != current.item_type_id or data.get("item_name") != current.item_name:
-        # Changing what the item is (its type or name) is the owner's job.
+  
         require_record_role("item", item_id, data["user_id"], "owner")
     if data["storage_id"] != current.storage_id:
-        # Moving it: the person needs access to the destination too.
+
         require_record_role("storage", data["storage_id"], data["user_id"])
         require_not_retired("storage", data["storage_id"])
     item = item_repository.update(
@@ -95,6 +98,42 @@ def update_item(item_id):
         item_status=data["item_status"],
     )
     return jsonify(item.to_dict())
+
+
+@item_bp.route("/items/<int:item_id>/status", methods=["POST"])
+def change_item_status(item_id):
+    data = parse_body(required={"user_id": int}, optional={"status": str, "storage_id": int})
+    new_status = data.get("status", "")
+    if new_status not in ITEM_STATUSES:
+        raise ValidationError("Status must be In Storage, In Use or In Transit.")
+
+    require_record_role("item", item_id, data["user_id"])
+    item = item_repository.get_by_id(item_id)
+    if item.retired is not None:
+        raise ValidationError("That item is retired", 409)
+    if new_status == item.item_status:
+        return jsonify({"changed": False})
+
+    if new_status == "In Transit":
+        # Leaving its storage unit: it has no place while it travels.
+        new_storage_id = None
+    elif item.item_status == "In Transit":
+        # Arriving: the person says where, and needs access to that storage unit.
+        new_storage_id = data.get("storage_id")
+        if not new_storage_id:
+            raise ValidationError("Choose where the item arrived.")
+        require_record_role("storage", new_storage_id, data["user_id"])
+        require_not_retired("storage", new_storage_id)
+    else:
+        # In Storage <-> In Use: it stays where it is.
+        new_storage_id = item.storage_id
+
+    changed = item_repository.change_status(
+        item_id, item.item_status, item.storage_id, new_status, new_storage_id
+    )
+    if not changed:
+        raise ValidationError("Someone else just changed this item. Reload the page and try again.", 409)
+    return jsonify({"changed": True})
 
 
 @item_bp.route("/items/<int:item_id>", methods=["DELETE"])

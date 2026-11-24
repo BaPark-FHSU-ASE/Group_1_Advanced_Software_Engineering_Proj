@@ -88,6 +88,7 @@ def count_of_type(item_type_id):
     finally:
         conn.close()
 
+
 def get_by_id(item_id):
     conn = get_connection()
     row = conn.execute(
@@ -118,6 +119,40 @@ def update(item_id, item_type_id, storage_id, item_name, item_status):
         return None
 
     return Item.from_row(row)
+
+
+def change_status(item_id, old_status, old_storage_id, new_status, new_storage_id):
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "UPDATE item SET item_status = ?, storage_id = ? "
+            "WHERE item_id = ? AND item_status = ?",
+            (new_status, new_storage_id, item_id, old_status),
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return False
+
+        moved = new_storage_id != old_storage_id
+        conn.execute(
+            "INSERT INTO item_movement "
+            "(item_id, from_storage_id, to_storage_id, from_status, to_status) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                item_id,
+                old_storage_id if moved else None,
+                new_storage_id if moved else None,
+                old_status,
+                new_status,
+            ),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def delete(item_id):

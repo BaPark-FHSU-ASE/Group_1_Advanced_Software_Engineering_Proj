@@ -56,6 +56,7 @@ TEST_FILES = [
      "tests/test_item_routes.py",
      "tests/test_item_type_routes.py",
      "tests/test_owner_routes.py",
+     "tests/test_item_repository_change_status.py",
 ]
 
 if __name__ == "__main__":
