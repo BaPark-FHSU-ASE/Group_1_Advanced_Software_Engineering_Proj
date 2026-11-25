@@ -70,8 +70,6 @@ def assert_error(response, status, text):
     assert text in response.get_json()["error"]
 
 
-# ---- list -----------------------------------------------------------------
-
 def test_owner_can_list_members(client):
     response = client.get(f"/businesses/1/members?user_id={DALE}")
     assert response.status_code == 200
@@ -102,7 +100,7 @@ def test_other_business_owner_cannot_see_this_business(client, fresh_db):
     assert client.get(f"/businesses/{other_business}/members?user_id={boss}").status_code == 200
 
 
-# ---- add ------------------------------------------------------------------
+
 
 def test_owner_can_add_an_employee(client, fresh_db):
     person = _add_person(fresh_db)
@@ -152,7 +150,6 @@ def test_add_unknown_person_is_409_and_next_write_works(client, fresh_db):
     assert ok.status_code == 201
 
 
-# ---- change role ----------------------------------------------------------
 
 def test_owner_can_promote_an_employee(client):
     response = client.put("/businesses/1/members/2", json={"user_id": DALE, "role": "owner"})
@@ -195,7 +192,7 @@ def test_cannot_change_a_member_of_another_business(client, fresh_db):
     assert_error(response, 404, "Member not found")
 
 
-# ---- remove ---------------------------------------------------------------
+
 
 def test_owner_can_remove_an_employee_and_they_lose_access(client):
     assert client.delete(f"/businesses/1/members/2?user_id={DALE}").status_code == 204
@@ -225,7 +222,7 @@ def test_remove_needs_a_user_id(client):
     
     
     
-# ---- creating a business makes its creator the first owner ----------------
+
 
 def test_creating_a_business_makes_the_creator_an_owner(client, fresh_db):
     person = _add_person(fresh_db)
@@ -309,4 +306,48 @@ def test_only_an_owner_can_add_by_email_and_it_does_not_reveal_which_emails_exis
 
 
 def test_adding_the_same_email_twice_is_409(client):
-    assert_error(_add_by_email(client, "crew@prairieroofing.example"), 409, "already exists")    
+    assert_error(_add_by_email(client, "crew@prairieroofing.example"), 409, "already exists")
+
+
+
+
+def test_the_member_list_shows_each_persons_name_and_email(client):
+    response = client.get(f"/businesses/1/members?user_id={JESS}")
+    assert response.status_code == 200
+    assert [(m["first_name"], m["last_name"], m["email"]) for m in response.get_json()] == [
+        ("Dale", "Renner", "dale@prairieroofing.example"),
+        ("Jess", "Ortega", "crew@prairieroofing.example"),
+    ]
+    for member in response.get_json():
+        assert set(member) == {
+            "business_member_id", "business_id", "owner_id", "role",
+            "first_name", "last_name", "email",
+        }
+
+
+def test_adding_and_changing_a_member_answers_with_their_name_and_email(client, fresh_db):
+    person = _add_person(fresh_db, "pat@example.com")
+    added = client.post(
+        "/businesses/1/members", json={"user_id": DALE, "owner_id": person, "role": "employee"}
+    ).get_json()
+    assert (added["first_name"], added["last_name"], added["email"]) == ("Pat", "Person", "pat@example.com")
+
+    other = _add_person(fresh_db, "sam@example.com")
+    by_email = _add_by_email(client, "sam@example.com").get_json()
+    assert (by_email["owner_id"], by_email["email"]) == (other, "sam@example.com")
+
+    changed = client.put(
+        f"/businesses/1/members/{added['business_member_id']}", json={"user_id": DALE, "role": "owner"}
+    ).get_json()
+    assert changed["role"] == "owner"
+    assert (changed["first_name"], changed["last_name"], changed["email"]) == ("Pat", "Person", "pat@example.com")
+
+
+def test_the_member_list_never_shows_people_from_other_businesses_or_passwords(client, fresh_db):
+    boss, other_business, _ = _add_second_business(fresh_db)
+    listed = client.get(f"/businesses/1/members?user_id={DALE}").get_json()
+    assert "boss@other.example" not in [m["email"] for m in listed]
+    assert all("password_hash" not in m for m in listed)
+
+    theirs = client.get(f"/businesses/{other_business}/members?user_id={boss}").get_json()
+    assert [m["email"] for m in theirs] == ["boss@other.example"]

@@ -2,17 +2,24 @@ from app.db.connection import get_connection
 from app.models.business_member import BusinessMember
 
 
+_MEMBER_WITH_PERSON = (
+    "SELECT bm.business_member_id, bm.business_id, bm.owner_id, bm.role, "
+    "o.first_name, o.last_name, o.email "
+    "FROM business_member bm JOIN owners o ON o.owner_id = bm.owner_id"
+)
+
+
 def get_all(business_id=None):
     conn = get_connection()
     try:
         if business_id is None:
             rows = conn.execute(
-                "SELECT * FROM business_member ORDER BY business_member_id"
+                _MEMBER_WITH_PERSON + " ORDER BY bm.business_member_id"
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM business_member WHERE business_id = ? "
-                "ORDER BY business_member_id",
+                _MEMBER_WITH_PERSON + " WHERE bm.business_id = ? "
+                "ORDER BY bm.business_member_id",
                 (business_id,),
             ).fetchall()
     finally:
@@ -25,7 +32,7 @@ def get_by_id(business_member_id):
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT * FROM business_member WHERE business_member_id = ?",
+            _MEMBER_WITH_PERSON + " WHERE bm.business_member_id = ?",
             (business_member_id,),
         ).fetchone()
     finally:
@@ -64,7 +71,6 @@ def has_role_anywhere(owner_id, role=None):
 
     return row is not None
 
-
 def get_memberships(owner_id):
     conn = get_connection()
     try:
@@ -79,6 +85,7 @@ def get_memberships(owner_id):
         conn.close()
 
     return [{"business_id": row["business_id"], "role": row["role"]} for row in rows]
+
 
 def share_a_business(owner_id, other_id):
 
@@ -119,7 +126,7 @@ def add(business_id, owner_id, role):
         )
         conn.commit()
         row = conn.execute(
-            "SELECT * FROM business_member WHERE business_member_id = ?",
+            _MEMBER_WITH_PERSON + " WHERE bm.business_member_id = ?",
             (cursor.lastrowid,),
         ).fetchone()
     finally:
@@ -137,7 +144,7 @@ def update_role(business_member_id, role):
         )
         conn.commit()
         row = conn.execute(
-            "SELECT * FROM business_member WHERE business_member_id = ?",
+            _MEMBER_WITH_PERSON + " WHERE bm.business_member_id = ?",
             (business_member_id,),
         ).fetchone()
     finally:

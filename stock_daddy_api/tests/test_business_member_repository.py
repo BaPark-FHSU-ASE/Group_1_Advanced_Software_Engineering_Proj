@@ -1,4 +1,3 @@
-
 import shutil
 import sqlite3
 
@@ -64,6 +63,9 @@ def test_get_by_id_returns_member(fresh_db):
         "business_id": 1,
         "owner_id": 1,
         "role": "owner",
+        "first_name": "Dale",
+        "last_name": "Renner",
+        "email": "dale@prairieroofing.example",
     }
 
 
@@ -158,7 +160,7 @@ def test_share_a_business(fresh_db):
     assert members.share_a_business(2, 1) is True
     assert members.share_a_business(1, 999999) is False
     assert members.share_a_business(999999, 1) is False    
-    
+
 
 def test_get_memberships_lists_each_business_and_role(fresh_db):
     assert members.get_memberships(1) == [{"business_id": 1, "role": "owner"}]
@@ -172,4 +174,21 @@ def test_get_memberships_skips_retired_businesses(fresh_db):
     assert [m["business_id"] for m in members.get_memberships(1)] == [1, second]
 
     _insert(fresh_db, "UPDATE business SET retired = CURRENT_TIMESTAMP WHERE business_id = ?", (second,))
-    assert [m["business_id"] for m in members.get_memberships(1)] == [1]    
+    assert [m["business_id"] for m in members.get_memberships(1)] == [1]
+
+
+def test_every_way_of_getting_a_member_carries_the_persons_name_and_email(fresh_db):
+    dale = ("Dale", "Renner", "dale@prairieroofing.example")
+    jess = ("Jess", "Ortega", "crew@prairieroofing.example")
+
+    def person(m):
+        return (m.first_name, m.last_name, m.email)
+
+    assert [person(m) for m in members.get_all(business_id=1)] == [dale, jess]
+    assert [person(m) for m in members.get_all()] == [dale, jess]
+    assert person(members.get_by_id(2)) == jess
+
+    newcomer = _add_owner(fresh_db, "fresh@example.com")
+    added = members.add(1, newcomer, "employee")
+    assert person(added) == ("New", "Person", "fresh@example.com")
+    assert person(members.update_role(added.business_member_id, "owner")) == ("New", "Person", "fresh@example.com")
