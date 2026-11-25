@@ -12,6 +12,7 @@ from app.controllers.item_controller import item_bp
 from app.controllers.target_quantity_controller import target_quantity_bp
 from app.controllers.business_member_controller import business_member_bp
 from app.controllers.building_route_controller import building_route_bp
+from app.controllers.item_movement_controller import item_movement_bp
 
 app = Flask(__name__)
 app.teardown_appcontext(close_connections)
@@ -26,6 +27,7 @@ app.register_blueprint(item_bp)
 app.register_blueprint(target_quantity_bp)
 app.register_blueprint(business_member_bp)
 app.register_blueprint(building_route_bp)
+app.register_blueprint(item_movement_bp)
 
 
 if __name__ == "__main__":

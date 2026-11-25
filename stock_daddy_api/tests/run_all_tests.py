@@ -38,6 +38,7 @@ TEST_FILES = [
      "tests/test_item_repository_create.py",
      "tests/test_item_repository_get_by_id.py",
      "tests/test_item_repository_update.py",
+     "tests/test_item_repository_change_status.py",
      "tests/test_item_repository_delete.py",
      "tests/test_target_quantity_repository.py",
      "tests/test_target_quantity_routes.py",
@@ -56,9 +57,10 @@ TEST_FILES = [
      "tests/test_item_routes.py",
      "tests/test_item_type_routes.py",
      "tests/test_owner_routes.py",
-     "tests/test_item_repository_change_status.py",
      "tests/test_building_route_repository.py",
      "tests/test_building_route_routes.py",
+     "tests/test_item_movement_repository.py",
+     "tests/test_item_movement_routes.py",
 ]
 
 if __name__ == "__main__":
