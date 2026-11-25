@@ -1,5 +1,20 @@
+import shutil
+
+import pytest
+
+from app.config import Config
 from app.db.connection import get_connection
 from app.models.item_type import ItemType
+from app.repositories import item_type_repository
+from tests.conftest import _REAL_DB
+
+
+@pytest.fixture
+def fresh_db(monkeypatch, tmp_path):
+    path = tmp_path / "stockdaddy_item_type_update.db"
+    shutil.copyfile(_REAL_DB, path)
+    monkeypatch.setattr(Config, "DB_PATH", str(path))
+    return path
 
 
 def test_update_changes_and_returns_item_type():
@@ -25,3 +40,15 @@ def test_update_changes_and_returns_item_type():
     finally:
         conn.rollback()
         conn.close()
+
+
+def test_update_changes_and_clears_the_service_life(fresh_db):
+    # Seed: Nail Gun (item type 1) has a service life of 730 days.
+    assert item_type_repository.get_by_id(1).service_life_days == 730
+
+    changed = item_type_repository.update(1, "Nail Gun", None, 340, service_life_days=900)
+    assert changed.service_life_days == 900
+
+    cleared = item_type_repository.update(1, "Nail Gun", None, 340)
+    assert cleared.service_life_days is None
+    assert item_type_repository.get_by_id(1).service_life_days is None

@@ -1,10 +1,3 @@
-"""Route tests for /item_types: one catalog shared by every business.
-
-Anyone in a business can look; any business owner can add; editing or deleting
-needs ownership of a business and that no business you don't own has items of
-that type. Seed: 6 item types; item type 1 is used only by business 1.
-"""
-
 import shutil
 
 import pytest
@@ -142,3 +135,50 @@ def test_editing_or_deleting_a_missing_type_is_404(client):
 def test_deleting_a_type_your_own_items_use_is_refused_by_the_database(client):
     assert_error(client.delete(f"/item_types/1?user_id={DALE}"), 409, "still depend")
     assert client.get(f"/item_types/1?user_id={DALE}").status_code == 200
+
+
+
+# Seed: Nail Gun (type 1) lasts 730 days, Hard Hat (type 4) 1825, the rest have no limit.
+
+def test_item_types_show_their_service_life(client):
+    listed = {t["item_type_id"]: t["service_life_days"] for t in client.get(f"/item_types?user_id={DALE}").get_json()}
+    assert listed == {1: 730, 2: None, 3: None, 4: 1825, 5: None, 6: None}
+    assert client.get(f"/item_types/1?user_id={JESS}").get_json()["service_life_days"] == 730
+
+
+def test_an_item_type_can_be_added_with_or_without_a_service_life(client):
+    with_life = client.post("/item_types", json={"user_id": DALE, "name": "Short Lived", "service_life_days": 30})
+    assert with_life.status_code == 201
+    assert with_life.get_json()["service_life_days"] == 30
+
+    without = client.post("/item_types", json={"user_id": DALE, "name": "Forever"}).get_json()
+    assert without["service_life_days"] is None
+    nulled = client.post("/item_types", json={"user_id": DALE, "name": "Also Forever", "service_life_days": None}).get_json()
+    assert nulled["service_life_days"] is None
+
+
+def test_service_life_must_be_a_whole_number_of_days_of_at_least_one(client):
+    for days in (0, -5):
+        response = client.post("/item_types", json={"user_id": DALE, "name": "Bad Life", "service_life_days": days})
+        assert_error(response, 400, "Service life must be at least 1 day.")
+    for days in (2.5, "abc", True):
+        response = client.post("/item_types", json={"user_id": DALE, "name": "Bad Life", "service_life_days": days})
+        assert_error(response, 400, "service_life_days must be a whole number")
+    names = [t["name"] for t in client.get(f"/item_types?user_id={DALE}").get_json()]
+    assert "Bad Life" not in names
+
+
+def test_editing_an_item_type_sets_or_clears_its_service_life(client):
+    body = {"user_id": DALE, "name": "Nail Gun", "service_life_days": 900}
+    assert client.put("/item_types/1", json=body).get_json()["service_life_days"] == 900
+
+    # An edit is a full replacement, so leaving the field out clears it.
+    cleared = client.put("/item_types/1", json={"user_id": DALE, "name": "Nail Gun"})
+    assert cleared.get_json()["service_life_days"] is None
+
+
+def test_a_bad_service_life_on_an_edit_changes_nothing(client):
+    response = client.put("/item_types/1", json={"user_id": DALE, "name": "Renamed", "service_life_days": 0})
+    assert_error(response, 400, "Service life must be at least 1 day.")
+    kept = client.get(f"/item_types/1?user_id={DALE}").get_json()
+    assert (kept["name"], kept["service_life_days"]) == ("Nail Gun", 730)

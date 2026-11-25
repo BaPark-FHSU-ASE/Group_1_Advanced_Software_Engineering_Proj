@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from app.Validation_Helper import parse_body, require_query_int
+from app.Validation_Helper import ValidationError, parse_body, require_query_int
 from app.access import AccessError
 from app.repositories import (
     business_lookup_repository,
@@ -8,6 +8,14 @@ from app.repositories import (
 )
 
 item_type_bp = Blueprint("item_type_bp", __name__)
+
+
+def _service_life_days(data):
+    """The service life in days, or None for no limit. Whole days, at least 1."""
+    days = data.get("service_life_days")
+    if days is not None and days < 1:
+        raise ValidationError("Service life must be at least 1 day.")
+    return days
 
 
 def _require_member(user_id):
@@ -44,13 +52,14 @@ def get_item_types():
 def create_item_type():
     data = parse_body(
         required={"user_id": int, "name": str},
-        optional={"description": str, "replacement_cost": float},
+        optional={"description": str, "replacement_cost": float, "service_life_days": int},
     )
     _require_owner(data["user_id"])
     item_type = item_type_repository.create(
         name=data["name"],
         description=data.get("description"),
         replacement_cost=data.get("replacement_cost"),
+        service_life_days=_service_life_days(data),
     )
     return jsonify(item_type.to_dict()), 201
 
@@ -68,7 +77,7 @@ def get_item_type(item_type_id):
 def update_item_type(item_type_id):
     data = parse_body(
         required={"user_id": int, "name": str},
-        optional={"description": str, "replacement_cost": float},
+        optional={"description": str, "replacement_cost": float, "service_life_days": int},
     )
     _require_can_change(data["user_id"], item_type_id)
     item_type = item_type_repository.update(
@@ -76,6 +85,7 @@ def update_item_type(item_type_id):
         name=data["name"],
         description=data.get("description"),
         replacement_cost=data.get("replacement_cost"),
+        service_life_days=_service_life_days(data),
     )
     return jsonify(item_type.to_dict())
 
